@@ -131,14 +131,16 @@ engine{
 
     typedef struct select_select_info {
         column_types col_tp ;
-        char *col_name[300] ; 
-        int col_counter  ; 
+        char *col_name ; 
         char * operator ; 
         select_select_info *left ; 
         select_select_info * right ; 
         char * as ; 
+        float *float_val ; 
+        unsigned char * blob ; 
         int * num_value ; 
         char * char_value ; 
+        int acc_reg ; 
     }
 
     typedef struct select_from_info{
@@ -151,8 +153,9 @@ engine{
     }
 
     typedef struct select_info{
-        select_select_info sel ; 
-        select_from_info from ; 
+        select_select_info *sel[300] ;
+        int col_counter ;  
+        select_from_info *from ; 
     }
 
     typedef struct sql_master {
@@ -212,36 +215,90 @@ engine{
     }
 
     void compile_select (compiler *c ){
-        emit(c , begin_op  , NULL , NULL , NULL , NULL ) ; 
+        emit(c , begin_op  , -1 , -1 , -1 , NULL ) ; 
         int cursor = c->cursor_num++ ; 
+        emit(c , open_read_op , cursor , sql_master->page_num ,  -1 , -1 , NULL    ) ; 
+        
+        for ( int i = 0 ; i < c->select.col_counter ; i++  ){
+            select_select_info *node = c->select.sel[i].col_name ; 
+            if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
+                node->acc_reg = c->register_counter++   ; 
+                emit(c ,aggregate_init ,node->acc_reg , -1 , -1 , NULL  ) ; 
+            }
+        }
 
-        emit(c , open_read_op , cursor , sql_master->page_num ,  NULL , NULL , NULL    ) ; 
-        emit(c , rewind_cursor , cursor , NULL , NULL , NULL , NULL  ) ; 
+        emit(c , rewind_cursor , cursor , -1 , -1 , -1 , NULL  ) ; 
         int register_num = c->register_counter++ ; 
         c->register_start = register_num ; 
         int loop_addr = c->count ; 
-        if (c->select.sel.operator != NULL){
-
-        }
-        else  {
-            for ( int i = 0 ; i < c->select.sel.col_counter ; i++  ){
-                int num = col_name_to_int_main( c->select.sel.col_name[i] , c->select.from   ) ; 
+            for ( int i = 0 ; i < c->select.col_counter ; i++  ){
+                int num = col_name_to_int_main( c->select.sel[i].col_name , c->select.from   ) ; 
                 if (num != -1 ){
-                    register_num = c->register_counter++ ; 
-                    emit(c , column_op ,cursor , num , register_num  , NULL , NULL ) ; 
+                    if (c->select.sel[i].operator == NULL ){
+                        register_num = c->register_counter++ ; 
+                        if (1){
+                            select_select_info *node = c->select.sel[i] ; 
+                            if (node->col_name != NULL ){
+                                emit(c , column_op ,cursor , num , register_num  , NULL  ) ;  
+                            }
+                            else {
+                                if (node->num_value != NULL ){
+                                    emit(c , integer_op , *node->num_value , register_num , -1  , NULL  ) ;   
+                                }
+                                else if (node->char_value != NULL ){
+                                    emit(c , string_op ,-1 , register_num , -1  , (void*)node->char_value   ) ;   
+                                }
+                                else if (node->float_val != NULL ){
+                                    emit(c , real_op , -1, register_num , -1  , (void*)node->float_val   ) ;   
+                                }
+                                else if (node->blob != NULL ){
+                                    emit(c , blob_op ,-1 , register_num , -1  , (void*)node->blob   ) ;   
+                                }
+                            }
+                        }
+                    }
+                    else { 
+                        int not_needed =  func(c ,c->select.sel[i] ) ; 
+                    }
                 }
             }
+        emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
+        emit(c , next_cursor , cursor , loop_addr   , -1 , NULL ) ; 
+        for ( int i = 0 ; i < c->select.col_counter ; i++  ){
+            select_select_info *node = c->select.sel[i].col_name ; 
+            if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
+                emit(c ,aggregate_final ,node->acc_reg , -1 , node->acc_reg  , NULL  ) ; 
+            }
         }
-        emit(c , result_row ,c->register_start , c->register_start + c->register_counter , NULL  , NULL , NULL ) ; 
-        emit(c , next_cursor , cursor , loop_addr   , NULL , NULL )
-        emit(c, close_cursor_op , cursor, NULL, NULL, NULL, NULL);
-        emit(c, halt, NULL, NULL, NULL, NULL, NULL);
+        emit(c, close_cursor_op , cursor, -1, -1, -1, NULL);
+        emit(c, halt, -1, -1, -1, -1, NULL);
     }
 
 
 // okay one of the most insane boring thing which happens here is see man like the loop occurs in the bytecodes itself so when we like put the register_counter like see we did the thing and as soo nas we hit the next_op it calls the bytecoders which we passed on earleir the earleir one okay only that gets called we are not calling anything in the compile_seelct getting ti it is complelty different thing got it 
+    
+
+
+    void aggregate_select(compiler *c , select_select_info * node  ){
+        void * operation = node->operator ; 
+        int reg ; 
+        if (node->col_name != NULL) {             
+            int num = col_name_to_int_main(node->col_name, c->select.from);
+            reg = c->register_counter++;
+            emit(c, column_op, cursor, num, reg, NULL);
+        }
+        else if (node->left != NULL) {             
+            reg = func(c, node->left, cursor);
+        }
+        else {                         
+            reg = -1;
+        }
+        emit(c , aggregate_step , node->acc_reg , reg , NULL , operation) ; 
+    }
+
+
     int  func(compiler *c , select_select_info * node ){
-        int reg = c->register_counter++  ; 
+        int reg   ; 
         int operator ; 
         if (node->operator != NULL  ) {
             if (strcmp(node->operator , "+")== 0 ){
@@ -274,32 +331,115 @@ engine{
             if (strcmp(node->operator , "<=")== 0 ){
                  operator = le_select_op ; 
             }
-
+            if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
+                aggregate_select(c , node ) ; 
+            }
+            int num = col_name_to_int_main( c->select.sel[i].col_name , c->select.from   ) ; 
+            int cursor = c->cursor_num ; 
 
 
             if (node->right == NULL && node->left == NULL  ){
                 int reg_left = c->register_counter++ ; 
-                emit(c , column_op ,cursor , num , reg_left  , NULL , NULL ) ;  
-                int reg_right =  c->register_counter++ ;  
-                emit(c , column_op ,cursor , num , reg_right  , NULL , NULL ) ;  
-                emit(c , operator ,reg_left ,reg_right , reg , NULL , NULL ) ;                   
+                if (1){
+                    if (node->col_name != NULL ){
+                        emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
+                    }
+                    else {
+                        if (node->num_value != NULL ){
+                            emit(c , integer_op , *node->num_value , reg_left , -1  , NULL  ) ;   
+                        }
+                        else if (node->char_value != NULL ){
+                            emit(c , string_op ,-1 , reg_left , -1  , (void*)node->char_value   ) ;   
+                        }
+                        else if (node->float_val != NULL ){
+                            emit(c , real_op , -1, reg_left , -1  , (void*)node->float_val   ) ;   
+                        }
+                        else if (node->blob != NULL ){
+                            emit(c , blob_op ,-1 , reg_left , -1  , (void*)node->blob   ) ;   
+                        }
+                    }
+                }
+
+                int reg_right =  c->register_counter++ ;    
+                if (1){
+                    if (node->col_name != NULL ){
+                        emit(c , column_op ,cursor , num , reg_right  , NULL  ) ;  
+                    }
+                    else {
+                        if (node->num_value != NULL ){
+                            emit(c , integer_op , *node->num_value , reg_right , -1  , NULL  ) ;   
+                        }
+                        else if (node->char_value != NULL ){
+                            emit(c , string_op ,-1 , reg_right , -1  , (void*)node->char_value   ) ;   
+                        }
+                        else if (node->float_val != NULL ){
+                            emit(c , real_op , -1, reg_right , -1  , (void*)node->float_val   ) ;   
+                        }
+                        else if (node->blob != NULL ){
+                            emit(c , blob_op ,-1 , reg_right , -1  , (void*)node->blob   ) ;   
+                        }
+                    }
+                }
+                reg = c->register_counter++  ; 
+                emit(c , operator ,reg_left ,reg_right , reg , -1 , NULL ) ;                   
             }
+
+
             else if (node->right != NULL && node->left == NULL ) {
                 int reg_right = func(c , node->right ) ; 
                 int reg_left =  c->register_counter++ ;  
-                emit(c , column_op ,cursor , num , reg_left  , NULL , NULL ) ;  
-                emit(c , operator ,reg_left, reg_right , reg , NULL , NULL ) ;   
+                        if (1){
+                            if (node->col_name != NULL ){
+                                emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
+                            }
+                            else {
+                                if (node->num_value != NULL ){
+                                    emit(c , integer_op , *node->num_value , reg_left , NULL  , NULL  ) ;   
+                                }
+                                else if (node->char_value != NULL ){
+                                    emit(c , string_op ,-1 , reg_left , -1  , (void*)node->char_value   ) ;   
+                                }
+                                else if (node->float_val != NULL ){
+                                    emit(c , real_op , -1, reg_left , N-1ULL  , (void*)node->float_val   ) ;   
+                                }
+                                else if (node->blob != NULL ){
+                                    emit(c , blob_op ,-1 , reg_left , -1  , (void*)node->blob   ) ;   
+                                }
+                            }
+                        }
+                reg = c->register_counter++  ; 
+                emit(c , operator ,reg_left, reg_right , reg , -1 , NULL ) ;   
             }
             else if(node->left != NULL && node->right == NULL ){
                 int reg_left = func(c , node->left ) ; 
                 int reg_right =  c->register_counter++ ;  
-                emit(c , column_op ,cursor , num , reg_right , NULL , NULL ) ;  
-                emit(c , operator ,reg_left , reg_right  , reg , NULL , NULL ) ;  
+                        if (1){
+                            if (node->col_name != NULL ){
+                                emit(c , column_op ,cursor , num , reg_right  , NULL  ) ;  
+                            }
+                            else {
+                                if (node->num_value != NULL ){
+                                    emit(c , integer_op , *node->num_value , reg_right , -1  , NULL  ) ;   
+                                }
+                                else if (node->char_value != NULL ){
+                                    emit(c , string_op ,-1 , reg_right , -1  , (void*)node->char_value   ) ;   
+                                }
+                                else if (node->float_val != NULL ){
+                                    emit(c , real_op , -1, reg_right , -1  , (void*)node->float_val   ) ;   
+                                }
+                                else if (node->blob != NULL ){
+                                    emit(c , blob_op ,-1 , reg_right , -1  , (void*)node->blob   ) ;   
+                                }
+                            }
+                        }
+                reg = c->register_counter++  ; 
+                emit(c , operator ,reg_left , reg_right  , reg , -1 , NULL ) ;  
             }
             else { 
                 int reg_right = func(c , node->right ) ; 
                 int reg_left = func(c , node->left ) ; 
-                emit(c , operator ,reg_left , reg_right , reg , NULL , NULL ) ;  
+                reg = c->register_counter++  ; 
+                emit(c , operator ,reg_left , reg_right , reg , -1 , NULL ) ;  
             }
         }
 

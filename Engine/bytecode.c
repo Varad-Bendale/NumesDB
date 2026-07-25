@@ -976,7 +976,7 @@ bytecode {
 
                 case real_op:
                     byt->regis[op->p2].type = real_num;
-                    byt->regis[op->p2].val.r = op->p1;
+                    byt->regis[op->p2].val.r = (float*)op->p4;
                     break;
 
                 case copy_op:

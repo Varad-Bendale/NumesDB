@@ -1116,7 +1116,382 @@ bytecode {
 
 
 
-                case eq_op : 
+                case eq_select_op : 
+                    if ( byt->regis[op->p1].type == integer_num && byt->regis[op->p3].type == integer_num  ){
+                        if (byt->regis[op->p1].val.i == byt->regis[op->p3].val.i ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    else if ( byt->regis[op->p1].type == real_num && byt->regis[op->p3].type == real_num  ){
+                        if (byt->regis[op->p1].val.r == byt->regis[op->p3].val.r ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+
+                    else if (byt->regis[op->p3].type == real_num && byt->regis[op->p1].type == integer_num   ){
+                        float num  = (float)( byt->regis[op->p1].val.i ) ; 
+                        if (num ==  byt->regis[op->p3].val.r){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+
+                    else if (byt->regis[op->p1].type == real_num && byt->regis[op->p3].type == integer_num   ){
+                        float num  = (float)( byt->regis[op->p3].val.i ) ; 
+                        if (num ==  byt->regis[op->p1].val.r){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    
+                    else if (byt->regis[op->p1].type == string_num && byt->regis[op->p3].type == string_num ){
+                            if (strcmp(byt->regis[op->p1].val.s ,byt->regis[op->p3].val.s ) == 0 ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    break ; 
+
+
+                case ne_select_op : 
+                    if ( byt->regis[op->p1].type == integer_num && byt->regis[op->p3].type == integer_num  ){
+                        if (byt->regis[op->p1].val.i != byt->regis[op->p3].val.i ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    else if ( byt->regis[op->p1].type == real_num && byt->regis[op->p3].type == real_num  ){
+                        if (byt->regis[op->p1].val.r != byt->regis[op->p3].val.r ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+
+                    else if (byt->regis[op->p3].type == real_num && byt->regis[op->p1].type == integer_num   ){
+                        float num  = (float)( byt->regis[op->p1].val.i ) ; 
+                        if (num !=  byt->regis[op->p3].val.r){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+
+                    else if (byt->regis[op->p1].type == real_num && byt->regis[op->p3].type == integer_num   ){
+                        float num  = (float)( byt->regis[op->p3].val.i ) ; 
+                        if (num !=  byt->regis[op->p1].val.r){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    
+                    else if (byt->regis[op->p1].type == string_num && byt->regis[op->p3].type == string_num ){
+                            if (strcmp(byt->regis[op->p1].val.s ,byt->regis[op->p3].val.s ) != 0 ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    break ; 
+
+
+
+
+                case gt_select_op : 
+                    if ( byt->regis[op->p1].type == integer_num && byt->regis[op->p3].type == integer_num  ){
+                        if (byt->regis[op->p1].val.i < byt->regis[op->p3].val.i ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    else if ( byt->regis[op->p1].type == real_num && byt->regis[op->p3].type == real_num  ){
+                        if (byt->regis[op->p1].val.r < byt->regis[op->p3].val.r ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+
+                    else if (byt->regis[op->p3].type == real_num && byt->regis[op->p1].type == integer_num   ){
+                        float num  = (float)( byt->regis[op->p1].val.i ) ; 
+                        if (num <  byt->regis[op->p3].val.r){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+
+                    else if (byt->regis[op->p1].type == real_num && byt->regis[op->p3].type == integer_num   ){
+                        float num  = (float)( byt->regis[op->p3].val.i ) ; 
+                        if (num <  byt->regis[op->p1].val.r){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    
+                    else if (byt->regis[op->p1].type == string_num && byt->regis[op->p3].type == string_num ){
+                            int num_1 = 0 ; 
+                            int num_2 = 0 ;
+                            int i = 0 ; 
+                            int j = 0  ; 
+                            while (  num_1 == num_2  ) {
+                                if (i < byt->regis[op->p1].lenght ){
+                                    num_1 = num_1 + (int)byt->regis[op->p1].val.s[i] ; 
+                                    i++ ; 
+                                } 
+                                if ( j < byt->regis[op->p3].lenght  ){
+                                    num_2 = num_2 + (int)byt->regis[op->p3].val.s[j] ;        
+                                    j++ ;  
+                                }      
+                                if ( i >= byt->regis[op->p1].lenght &&  j >= byt->regis[op->p3].lenght  ) {
+                                    break ; 
+                                }
+                            }
+                            if (num_2 > num_1){
+                                byt->regis[op->p3].val.i = 1  ;
+                            }
+                            else { 
+                                byt->regis[op->p3].val.i = 0  ;
+                            }
+                      }
+                      break ; 
+
+
+
+                case lt_select_op : 
+                    if ( byt->regis[op->p1].type == integer_num && byt->regis[op->p3].type == integer_num  ){
+                        if (byt->regis[op->p1].val.i > byt->regis[op->p3].val.i ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    else if ( byt->regis[op->p1].type == real_num && byt->regis[op->p3].type == real_num  ){
+                        if (byt->regis[op->p1].val.r > byt->regis[op->p3].val.r ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+
+                    else if (byt->regis[op->p3].type == real_num && byt->regis[op->p1].type == integer_num   ){
+                        float num  = (float)( byt->regis[op->p1].val.i ) ; 
+                        if (num >  byt->regis[op->p3].val.r){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+
+                    else if (byt->regis[op->p1].type == real_num && byt->regis[op->p3].type == integer_num   ){
+                        float num  = (float)( byt->regis[op->p3].val.i ) ; 
+                        if (num > byt->regis[op->p1].val.r){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    
+
+
+
+                    else if (byt->regis[op->p1].type == string_num && byt->regis[op->p3].type == string_num ){
+                            int num_1 = 0 ; 
+                            int num_2 = 0 ;
+                            int i = 0 ; 
+                            int j = 0  ; 
+                            while (  num_1 == num_2  ) {
+                                if (i < byt->regis[op->p1].lenght ){
+                                    num_1 = num_1 + (int)byt->regis[op->p1].val.s[i] ; 
+                                    i++ ; 
+                                } 
+                                if ( j < byt->regis[op->p3].lenght  ){
+                                    num_2 = num_2 + (int)byt->regis[op->p3].val.s[j] ;        
+                                    j++ ;  
+                                }      
+                                if ( i >= byt->regis[op->p1].lenght &&  j >= byt->regis[op->p3].lenght  ) {
+                                    break ; 
+                                }
+                            }
+                            if (num_2 < num_1){
+                                byt->regis[op->p3].val.i = 1  ;
+                            }
+                            else { 
+                                byt->regis[op->p3].val.i = 0  ;
+                            }
+                    }
+                    break ; 
+
+
+
+                case le_select_op : 
+                    if ( byt->regis[op->p1].type == integer_num && byt->regis[op->p3].type == integer_num  ){
+                        if (byt->regis[op->p1].val.i >= byt->regis[op->p3].val.i ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    else if ( byt->regis[op->p1].type == real_num && byt->regis[op->p3].type == real_num  ){
+                        if (byt->regis[op->p1].val.r >= byt->regis[op->p3].val.r ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+
+                    else if (byt->regis[op->p3].type == real_num && byt->regis[op->p1].type == integer_num   ){
+                        float num  = (float)( byt->regis[op->p1].val.i ) ; 
+                        if (num >=  byt->regis[op->p3].val.r){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+
+                    else if (byt->regis[op->p1].type == real_num && byt->regis[op->p3].type == integer_num   ){
+                        float num  = (float)( byt->regis[op->p3].val.i ) ; 
+                        if (num >= byt->regis[op->p1].val.r){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    
+
+
+
+                    else if (byt->regis[op->p1].type == string_num && byt->regis[op->p3].type == string_num ){
+                            int num_1 = 0 ; 
+                            int num_2 = 0 ;
+                            int i = 0 ; 
+                            int j = 0  ; 
+                            while (  num_1 == num_2  ) {
+                                if (i < byt->regis[op->p1].lenght ){
+                                    num_1 = num_1 + (int)byt->regis[op->p1].val.s[i] ; 
+                                    i++ ; 
+                                } 
+                                if ( j < byt->regis[op->p3].lenght  ){
+                                    num_2 = num_2 + (int)byt->regis[op->p3].val.s[j] ;        
+                                    j++ ;  
+                                }      
+                                if ( i >= byt->regis[op->p1].lenght &&  j >= byt->regis[op->p3].lenght  ) {
+                                    break ; 
+                                }
+                            }
+                            if (num_2 <= num_1){
+                                byt->regis[op->p3].val.i = 1  ;
+                            }
+                            else { 
+                                byt->regis[op->p3].val.i = 0  ;
+                            }
+                    }
+                    break ; 
+
+
+
+
+                case ge_select_op : 
+                    if ( byt->regis[op->p1].type == integer_num && byt->regis[op->p3].type == integer_num  ){
+                        if (byt->regis[op->p1].val.i <= byt->regis[op->p3].val.i ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    else if ( byt->regis[op->p1].type == real_num && byt->regis[op->p3].type == real_num  ){
+                        if (byt->regis[op->p1].val.r <= byt->regis[op->p3].val.r ){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+
+                    else if (byt->regis[op->p3].type == real_num && byt->regis[op->p1].type == integer_num   ){
+                        float num  = (float)( byt->regis[op->p1].val.i ) ; 
+                        if (num <=  byt->regis[op->p3].val.r){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+
+                    else if (byt->regis[op->p1].type == real_num && byt->regis[op->p3].type == integer_num   ){
+                        float num  = (float)( byt->regis[op->p3].val.i ) ; 
+                        if (num <=  byt->regis[op->p1].val.r){
+                            byt->regis[op->p3].val.i = 1  ;
+                        }
+                        else { 
+                            byt->regis[op->p3].val.i = 0  ;
+                        }
+                    }
+                    
+                    else if (byt->regis[op->p1].type == string_num && byt->regis[op->p3].type == string_num ){
+                            int num_1 = 0 ; 
+                            int num_2 = 0 ;
+                            int i = 0 ; 
+                            int j = 0  ; 
+                            while (  num_1 == num_2  ) {
+                                if (i < byt->regis[op->p1].lenght ){
+                                    num_1 = num_1 + (int)byt->regis[op->p1].val.s[i] ; 
+                                    i++ ; 
+                                } 
+                                if ( j < byt->regis[op->p3].lenght  ){
+                                    num_2 = num_2 + (int)byt->regis[op->p3].val.s[j] ;        
+                                    j++ ;  
+                                }      
+                                if ( i >= byt->regis[op->p1].lenght &&  j >= byt->regis[op->p3].lenght  ) {
+                                    break ; 
+                                }
+                            }
+                            if (num_2 >= num_1){
+                                byt->regis[op->p3].val.i = 1  ;
+                            }
+                            else { 
+                                byt->regis[op->p3].val.i = 0  ;
+                            }
+                      }
+                      break ; 
+
+
+
+                    case eq_op : 
                     if ( byt->regis[op->p1].type == integer_num && byt->regis[op->p3].type == integer_num  ){
                         if (byt->regis[op->p1].val.i == byt->regis[op->p3].val.i ){
                             byt->pc = op->p2;
@@ -1824,9 +2199,11 @@ bytecode {
                         byt->btr[op->p1].depth-- ; 
                     }
                     if (kept == 1 ){
-                        break ; 
+                       byt->pc = op->p2;   
+                        continue  ; 
                     }
                     byt->btr[op->p1].end  = true ; 
+                    byt->pc++ ;
                     break ; 
 
 
@@ -2473,8 +2850,12 @@ bytecode {
                 case result_row : 
                     byt->reg_start = op->p1 ; 
                     byt->reg_end = byt->reg_start  + op->p2 ; 
-                    byt->reg_mode = end_num ; 
-              
+                    byt->reg_mode = end_num ;
+                    for ( int i = byt->reg_start ; i < byt->reg_end  ; i++ ){
+
+                    } 
+                    
+
                 case limit_op : 
                     if (byt->reg[op->p1].val.i > 0 ){
                         byt->reg[op->p1].val.i-- ; 

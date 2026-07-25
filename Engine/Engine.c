@@ -240,48 +240,70 @@ engine{
 
 
 // okay one of the most insane boring thing which happens here is see man like the loop occurs in the bytecodes itself so when we like put the register_counter like see we did the thing and as soo nas we hit the next_op it calls the bytecoders which we passed on earleir the earleir one okay only that gets called we are not calling anything in the compile_seelct getting ti it is complelty different thing got it 
-    double func(compiler *c , select_select_info * node ){
-        if (node.left == NULL && node.right == NULL ){
-            return  num ; 
-        }
+    int  func(compiler *c , select_select_info * node ){
         int reg = c->register_counter++  ; 
-
-        if (strcmp(node.operator , "+" )== 0  ) {
-            if (node.col_counter  == 2 ){
-                emit(c , column_op ,cursor , num , c->register_start + c->register_counter  , NULL , NULL ) ;  
-                emit(c , column_op ,cursor , num , c->register_start + c->register_counter + 1  , NULL , NULL ) ;  
-                emit(c , add_op ,c->register_start , c->register_start + 1  , reg , NULL , NULL ) ;                   
+        int operator ; 
+        if (node->operator != NULL  ) {
+            if (strcmp(node->operator , "+")== 0 ){
+                operator = add_op ; 
             }
-            else  {
-                emit(c , column_op ,cursor , num , c->register_start  , NULL , NULL ) ;  
-                emit(c , add_op ,c->register_start , reg , reg , NULL , NULL ) ;   
+            if (strcmp(node->operator , "-")== 0 ){
+                operator = subs_op ; 
+            }
+            if (strcmp(node->operator , "*")== 0 ){
+                operator = mul_op ; 
+            }   
+            if (strcmp(node->operator , "/")== 0 ){
+                operator = divide_op ; 
+            }
+            if (strcmp(node->operator , "=")== 0 ){
+                operator = eq_select_op ; 
+            }
+            if (strcmp(node->operator , "!=")== 0 ){
+                 operator = ne_select_op ; 
+            }
+            if (strcmp(node->operator , ">")== 0 ){
+                 operator = gt_select_op ; 
+            }
+            if (strcmp(node->operator , ">=")== 0 ){
+                    operator = ge_select_op ; 
+            }
+            if (strcmp(node->operator , "<")== 0 ){
+                 operator = lt_select_op ; 
+            }
+            if (strcmp(node->operator , "<=")== 0 ){
+                 operator = le_select_op ; 
+            }
+
+
+
+            if (node->right == NULL && node->left == NULL  ){
+                int reg_left = c->register_counter++ ; 
+                emit(c , column_op ,cursor , num , reg_left  , NULL , NULL ) ;  
+                int reg_right =  c->register_counter++ ;  
+                emit(c , column_op ,cursor , num , reg_right  , NULL , NULL ) ;  
+                emit(c , operator ,reg_left ,reg_right , reg , NULL , NULL ) ;                   
+            }
+            else if (node->right != NULL && node->left == NULL ) {
+                int reg_right = func(c , node->right ) ; 
+                int reg_left =  c->register_counter++ ;  
+                emit(c , column_op ,cursor , num , reg_left  , NULL , NULL ) ;  
+                emit(c , operator ,reg_left, reg_right , reg , NULL , NULL ) ;   
+            }
+            else if(node->left != NULL && node->right == NULL ){
+                int reg_left = func(c , node->left ) ; 
+                int reg_right =  c->register_counter++ ;  
+                emit(c , column_op ,cursor , num , reg_right , NULL , NULL ) ;  
+                emit(c , operator ,reg_left , reg_right  , reg , NULL , NULL ) ;  
+            }
+            else { 
+                int reg_right = func(c , node->right ) ; 
+                int reg_left = func(c , node->left ) ; 
+                emit(c , operator ,reg_left , reg_right , reg , NULL , NULL ) ;  
             }
         }
 
-
-        if (strcmp(node.operator , "-" )== 0  ) {
-            if (node.col_counter  == 2 ){
-                emit(c , column_op ,cursor , num , c->register_start + c->register_counter  , NULL , NULL ) ;  
-                emit(c , column_op ,cursor , num , c->register_start + c->register_counter + 1  , NULL , NULL ) ;  
-                emit(c , subs_op ,c->register_start , c->register_start + 1  , reg , NULL , NULL ) ;                   
-            }
-            else  {
-                emit(c , column_op ,cursor , num , c->register_start  , NULL , NULL ) ;  
-                emit(c , subs_op ,c->register_start , reg , reg , NULL , NULL ) ;   
-            }
-        }
-
-        
-
-
-
-
-        else if (node->left != NULL  ){
-            func( c , node->left ) ; 
-        }
-        else if (node->right != NULL  ){
-            func( c , node->right ) ; 
-        }
+        return reg ; 
     }
 
 }

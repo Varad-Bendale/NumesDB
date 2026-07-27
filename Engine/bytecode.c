@@ -2588,9 +2588,31 @@ bytecode {
                     }
                     break ; 
 
+                case is_null_no_jump : 
+                    if (byt->regis[op->p1].type == null_op ){
+                        byt->regis[op->p3].type = integer_op ; 
+                        byt->regis[op->p3].val.i = 1 ;
+                    }
+                    else {
+                        byt->regis[op->p3].type = integer_op ; 
+                        byt->regis[op->p3].val.i = 0 ;
+                    }
+                    break ; 
+
                 case is_not_null : 
                     if (byt->regis[op->p1].type != null_op ){
                         byt->pc = op->p2;
+                    }
+                    break ; 
+
+                case is_not_null_no_jump : 
+                    if (byt->regis[op->p1].type != null_op ){
+                        byt->regis[op->p3].type = integer_op ; 
+                        byt->regis[op->p3].val.i = 1 ;
+                    }
+                    else {
+                        byt->regis[op->p3].type = integer_op ; 
+                        byt->regis[op->p3].val.i = 0 ;
                     }
                     break ; 
 

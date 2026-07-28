@@ -50,9 +50,11 @@ engine{
         normal 
     }
 
+
     typedef struct select_select_info {
         column_types col_tp ;
         char *col_name ; 
+        char *extra_col ; 
         char * operator ; 
         select_select_info *left ; 
         select_select_info * right ; 
@@ -70,6 +72,7 @@ engine{
         char * as  ; 
         select_from_info *left ; 
         select_from_info * right ; 
+        select_select_info * on ; 
     }
 
     typedef struct select_info{
@@ -77,6 +80,7 @@ engine{
         int col_counter ;  
         select_from_info *from[300] ; 
         int tables_counter ; 
+        select_from_info *where ; 
     }
 
     typedef struct sql_master {
@@ -128,8 +132,8 @@ engine{
     select_select_info expre(select_select_info *ans ,    compiler *c , tree * temp){
         int i = 0 ; 
         while (i < temp->num){
-            if (strcmp(temp->children[i].comp , "+")== 0 || strcmp(temp->children[i].comp, "-")== 0 || strcmp(temp->children[i].comp, "*")== 0 || strcmp(temp->children[i].comp, "/")== 0 || strcmp(temp->children[i].comp , "=")== 0 || strcmp(temp->children[i].comp, "!=")== 0 || strcmp(temp->children[i].comp , ">")== 0 || strcmp(temp->children[i].comp , ">=")== 0 || strcmp(temp->children[i].comp , "<")== 0 || strcmp(temp->children[i].comp, "<=")== 0 || strcmp(temp->children[i].comp , "GROUP_CONCAT")== 0 || strcmp(temp->children[i].comp , "MAX") == 0 || strcmp(temp->children[i].comp , "MIN") == 0 || strcmp(temp->children[i].comp , "COUNT") == 0 || strcmp(temp->children[i].comp, "AVG") == 0 || strcmp(temp->children[i].comp , "SUM") == 0){
-                   ans->operator = temp->children[i].comp;
+            if (strcmp(temp->children[i]->comp , "+")== 0 || strcmp(temp->children[i]->comp, "-")== 0 || strcmp(temp->children[i]->comp, "*")== 0 || strcmp(temp->children[i]->comp, "/")== 0 || strcmp(temp->children[i]->comp , "=")== 0 || strcmp(temp->children[i]->comp, "!=")== 0 || strcmp(temp->children[i]->comp , ">")== 0 || strcmp(temp->children[i]->comp , ">=")== 0 || strcmp(temp->children[i]->comp , "<")== 0 || strcmp(temp->children[i]->comp, "<=")== 0 || strcmp(temp->children[i]->comp , "GROUP_CONCAT")== 0 || strcmp(temp->children[i]->comp , "MAX") == 0 || strcmp(temp->children[i]->comp , "MIN") == 0 || strcmp(temp->children[i]->comp , "COUNT") == 0 || strcmp(temp->children[i]->comp, "AVG") == 0 || strcmp(temp->children[i]->comp , "SUM") == 0){
+                   ans->operator = temp->children[i]->comp;
                 if (ans->left == NULL ){
                     ans->left = malloc(sizeof(select_select_info))
                     expre(ans->left, c, temp->children[i]);
@@ -139,22 +143,27 @@ engine{
                     expre(ans->right, c, temp->children[i]);
                 }
             }
-            else if (col_name_to_int_main(temp->children[i].comp, c->select.from) != -1 ){
-                ans->col_name = temp->children[i].comp ;
-            }
+            else if (col_name_to_int_main(temp->children[i]->comp, c->select.from) != -1 ){
+                if (ans->col_name != NULL ){
+                     ans->extra_col = temp->children[i]->comp ;
+                }
+                else { 
+                    ans->col_name = temp->children[i]->comp ;
+                 }
+             }
             else { 
-                int check = data_type_check(temp->children[i].comp);
+                int check = data_type_check(temp->children[i]->comp);
                 if (check == 0){
-                    ans->num_value = atoi(temp->children[i].comp);
+                    ans->num_value = atoi(temp->children[i]->comp);
                 }
                 else if (check == 1){
-                    ans->float_val = (float)atof(temp->children[i].comp);
+                    ans->float_val = (float)atof(temp->children[i]->comp);
                 }
                 else if (check == 2){
-                    ans->blob = temp->children[i].comp ;
+                    ans->blob = temp->children[i]->comp ;
                 }
                 else {
-                    ans->char_value = temp->children[i].comp ;
+                    ans->char_value = temp->children[i]->comp ;
                 }
             }
         i++;
@@ -162,44 +171,21 @@ engine{
         return ans ; 
     }
 
-
-    select_from_info expre_from(select_from_info *ans , compiler *c , tree * temp){
-        int i = 0 ; 
-        while (i < temp->num){
-            if (strcmp(temp->children[i].comp , "FULL OUTER JOIN")== 0 ||  strcmp(temp->children[i].comp , "CROSS JOIN")== 0 || strcmp(temp->children[i].comp , "AND")== 0 ||strcmp(temp->children[i].comp , "INNER JOIN")== 0 || strcmp(temp->children[i].comp , "JOIN")== 0 || strcmp(temp->children[i].comp , "LEFT JOIN")== 0 || strcmp(temp->children[i].comp , "RIGHT JOIN")== 0 || strcmp(temp->children[i].comp , "OR")== 0 || strcmp(temp->children[i].comp , "NOT")== 0 ||  strcmp(temp->children[i].comp , "+")== 0 || strcmp(temp->children[i].comp, "-")== 0 || strcmp(temp->children[i].comp, "*")== 0 || strcmp(temp->children[i].comp, "/")== 0 || strcmp(temp->children[i].comp , "=")== 0 || strcmp(temp->children[i].comp, "!=")== 0 || strcmp(temp->children[i].comp , ">")== 0 || strcmp(temp->children[i].comp , ">=")== 0 || strcmp(temp->children[i].comp , "<")== 0 || strcmp(temp->children[i].comp, "<=")== 0 || strcmp(temp->children[i].comp , "GROUP_CONCAT")== 0 || strcmp(temp->children[i].comp , "MAX") == 0 || strcmp(temp->children[i].comp , "MIN") == 0 || strcmp(temp->children[i].comp , "COUNT") == 0 || strcmp(temp->children[i].comp, "AVG") == 0 || strcmp(temp->children[i].comp , "SUM") == 0){
-                   ans->operator = temp->children[i].comp;
-                if (ans->left == NULL ){
-                    ans->left = malloc(sizeof(select_from_info)) ; 
-                    expre_from(ans->left, c, temp->children[i]);
-                }
-                else {
-                    ans->right = malloc(sizeof(select_from_info)) ; 
-                    expre_from(ans->right, c, temp->children[i]);
-                }
-            }
-            else if (col_name_to_int_main(temp->children[i].comp, c->select.from) != -1 ){
-                ans->col_name = temp->children[i].comp ;
-            }
-        i++;
-        }
-        return ans ; 
-    }
 
 
     void from_parser_to_struct(compiler * c  , tree * select ){
         select_from_info **from  = c->select.from ; 
         int temp = 0   ; 
-        while (temp < select->num && strcmp(select->children[temp].comp , "FROM") != 0 ){
+        while (temp < select->num && strcmp(select->children[temp]->comp , "FROM") != 0 ){
             temp++ ; 
         }
         select = select->children[temp] ; 
         int i = 0 ; 
         int num = 0 ; 
-        while ( i < select->num ){
-            while (strcmp(select->children[i].comp , "WHERE") != 0 ){
-                if (strcmp(select->children[i].comp , "ON") != 0 ){
+            while (  i < select->num && strcmp(select->children[i]->comp , "WHERE") != 0 ){
+                if (strcmp(select->children[i]->comp , "ON") != 0 ){
                     from[num] = malloc(sizeof(select_from_info)) ; 
-                    from[num]->table_name = select->children[i].comp ; 
+                    from[num]->table_name = select->children[i]->comp ; 
                     from[num]->operator = NULL ; 
                     from[num]->left = NULL ; 
                     from[num]->right = NULL ; 
@@ -209,15 +195,16 @@ engine{
                     num++ ; 
                 }
                 else { 
-                    from[num] = expre_from(from[num] , c , select->children[i].children[0]  ) ; 
+                    select_select_info * tempo = malloc(sizeof(select_select_info)) ; 
+                    tempo = expre(tempo  , c , select->children[i]->children[0]  ) ; 
                     if (select->children[i]->as != NULL ){
-                        from[num]->as = select->children[i]->as; 
+                        tempo->as = select->children[i]->as; 
                     }
+                   from[num]->on =   tempo  ; 
                     num++ ; 
                 }
+                i++ ; 
             }
-            i++ ; 
-        }
     }
 
 //okay my brain got shut so yeah i am wirtijng this down here see the problem is na go to expre first asnd then check out like if the thing for like at the very end we reach then we need liek 2 operands for the ework i feel it kind of lackds do trace it out and then see whats the problem get it done here the from thing would be done as well side by side okay so yeah work from here okay 
@@ -227,9 +214,9 @@ engine{
         int i = 0 ; 
         while ( i < select->num ){
             from_parser_to_struct(c , select ) ; 
-            while(strcmp(select->children[i].comp  , "FROM") == 0  ){
+            while(strcmp(select->children[i]->comp  , "FROM") != 0  ){
                 if (1){
-                    if (strcmp(select->children[i].comp  , "*") == 0 ){
+                    if (strcmp(select->children[i]->comp  , "*") == 0 ){
                         for (int k = 0 ; k < c->tables_counter ; k++ ){
                             table * temp = lookup_table(table_list , c->select.from[k] ) ; 
                             for ( int j = 0 ; j < temp->num_of_columns ; j++ ){
@@ -246,7 +233,7 @@ engine{
                         }
                     }   
                     else  {
-                        if (strcmp(select->children[i].comp , "+")== 0 || strcmp(select->children[i].comp, "-")== 0 || strcmp(select->children[i].comp , "*")== 0  || strcmp(select->children[i].comp , "/")== 0 || strcmp(select->children[i].comp, "=")== 0 || strcmp(select->children[i].comp , "!=")== 0  || strcmp(select->children[i].comp, ">")== 0 ||  strcmp(select->children[i].comp , ">=")== 0  || strcmp(select->children[i].comp , "<")== 0 ||  strcmp(select->children[i].comp , "<=")== 0 || strcmp(select->children[i].comp , "GROUP_CONCAT")== 0 || strcmp(select->children[i].comp, "MAX") == 0 || strcmp(select->children[i].comp , "MIN") == 0 || strcmp(select->children[i].comp, "COUNT") == 0 || strcmp(select->children[i].comp, "AVG") == 0 || strcmp(select->children[i].comp , "SUM") == 0){
+                        if (strcmp(select->children[i]->comp , "+")== 0 || strcmp(select->children[i]->comp, "-")== 0 || strcmp(select->children[i]->comp , "*")== 0  || strcmp(select->children[i]->comp , "/")== 0 || strcmp(select->children[i]->comp, "=")== 0 || strcmp(select->children[i]->comp , "!=")== 0  || strcmp(select->children[i]->comp, ">")== 0 ||  strcmp(select->children[i]->comp , ">=")== 0  || strcmp(select->children[i]->comp , "<")== 0 ||  strcmp(select->children[i]->comp , "<=")== 0 || strcmp(select->children[i]->comp , "GROUP_CONCAT")== 0 || strcmp(select->children[i]->comp, "MAX") == 0 || strcmp(select->children[i]->comp , "MIN") == 0 || strcmp(select->children[i]->comp, "COUNT") == 0 || strcmp(select->children[i]->comp, "AVG") == 0 || strcmp(select->children[i]->comp , "SUM") == 0){
                                 sel[num] = malloc(sizeof(select_select_info)) ; 
                                 sel[num] = expre(sel[num] , c , select->children[i] )  ; 
                                 if (select->as != NULL ){
@@ -255,9 +242,9 @@ engine{
                                 num++ ; 
                         }
                         else { 
-                            if(col_name_to_int_main(select->children[i].comp, c->select.from) != -1){
+                            if(col_name_to_int_main(select->children[i]->comp, c->select.from) != -1){
                                 sel[num] = malloc(sizeof(select_select_info)) ; 
-                                sel[num]->col_name = select->children[i].comp ; 
+                                sel[num]->col_name = select->children[i]->comp ; 
                                 sel[num]->operator = NULL ; 
                                 sel[num]->left = NULL ; 
                                 sel[num]->right = NULL ; 
@@ -267,14 +254,14 @@ engine{
                                 num++ ;  
                             }
                             else { 
-                                int check = data_type_check(select->children[i].comp);
+                                int check = data_type_check(select->children[i]->comp);
                                 if (check == 0){
                                     sel[num] = malloc(sizeof(select_select_info)) ; 
                                     sel[num]->col_name =  NULL ; 
                                     sel[num]->operator = NULL ; 
                                     sel[num]->left = NULL ; 
                                     sel[num]->right = NULL ; 
-                                    sel[num]->num_value = atoi(select->children[i].comp);
+                                    sel[num]->num_value = atoi(select->children[i]->comp);
                                     num++ ; 
                                 }
                                 else if (check == 1){
@@ -283,7 +270,7 @@ engine{
                                     sel[num]->operator = NULL ; 
                                     sel[num]->left = NULL ; 
                                     sel[num]->right = NULL ; 
-                                    sel[num++]->float_val = (float)atof(select->children[i].comp);
+                                    sel[num++]->float_val = (float)atof(select->children[i]->comp);
                                     num++ ; 
 
                                 }
@@ -293,7 +280,7 @@ engine{
                                     sel[num]->operator = NULL ; 
                                     sel[num]->left = NULL ; 
                                     sel[num]->right = NULL ; 
-                                    sel[num++]->blob = select->children[i].comp ;
+                                    sel[num++]->blob = select->children[i]->comp ;
                                     num++ ; 
 
                                 }
@@ -303,7 +290,7 @@ engine{
                                     sel[num]->operator = NULL ; 
                                     sel[num]->left = NULL ; 
                                     sel[num]->right = NULL ; 
-                                    sel[num++]->char_value = select->children[i].comp ;
+                                    sel[num++]->char_value = select->children[i]->comp ;
                                     num++ ; 
                                 }
                             }
@@ -311,6 +298,34 @@ engine{
                     }
                 }
             }
+            if (strcmp(select->children[i]->comp  , "WHERE") == 0  ){
+                select_parser_to_struct(c , select->children[i] ) ; 
+            }
+
+
+        }
+    }
+
+    void where_parser_to_struct(compiler *c , tree * select ){
+        int i = 0 ; 
+        while (i < select->num ){
+            if (i == 0 ){
+                select_select_info *temp ; 
+                c->select->where = expre(temp , c , select->children[i] ) ; 
+            }
+            else if(strcmp(select->children[i]->comp  , "ORDER BY") == 0 ){
+
+            }
+            else if (strcmp(select->children[i]->comp  , "CASE") == 0 ){
+
+            }
+            else if (strcmp(select->children[i]->comp  , "GROUP BY") == 0 ){
+                
+            }
+            else if (strcmp(select->children[i]->comp  , "LIMIT") == 0 || strcmp(select->children[i]->comp  , "OFFSET") == 0  ){
+
+            }
+
         }
     }
 
@@ -470,57 +485,97 @@ engine{
             if (strcmp(node->operator , "<=")== 0 ){
                  operator = le_select_op ; 
             }
+            if (strcmp(node->operator , "AND")== 0 ){
+                 operator = and_op ; 
+            }
+            if (strcmp(node->operator , "OR")== 0 ){
+                 operator = or_op ; 
+            }
+            if (strcmp(node->operator , "IS NULL")== 0 ){
+                 operator = is_null ; 
+            }
+            if (strcmp(node->operator , "IS NOT NULL")== 0 ){
+                 operator = is_not_null ; 
+            }
             if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
                 aggregate_select(c , node ) ; 
             }
-            int num = col_name_to_int_main( c->select.sel[i].col_name , c->select.from   ) ; 
+            int num = col_name_to_int_main( node->col_name , c->select.from   ) ; 
             int cursor = c->cursor_num ; 
 
 
             if (node->right == NULL && node->left == NULL  ){
-                int reg_left = c->register_counter++ ; 
-                if (1){
-                    if (node->col_name != NULL ){
-                        emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
+                if (operator != is_null  && operator != is_not_null ){
+                    int reg_left = c->register_counter++ ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_left , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_left , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_left , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_left , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
                     }
-                    else {
-                        if (node->num_value != NULL ){
-                            emit(c , integer_op , *node->num_value , reg_left , -1  , NULL  ) ;   
-                        }
-                        else if (node->char_value != NULL ){
-                            emit(c , string_op ,-1 , reg_left , -1  , (void*)node->char_value   ) ;   
-                        }
-                        else if (node->float_val != NULL ){
-                            emit(c , real_op , -1, reg_left , -1  , (void*)node->float_val   ) ;   
-                        }
-                        else if (node->blob != NULL ){
-                            emit(c , blob_op ,-1 , reg_left , -1  , (void*)node->blob   ) ;   
-                        }
-                    }
-                }
 
-                int reg_right =  c->register_counter++ ;    
-                if (1){
-                    if (node->col_name != NULL ){
-                        emit(c , column_op ,cursor , num , reg_right  , NULL  ) ;  
+                    int reg_right =  c->register_counter++ ;    
+                    if (1){
+                        if (node->extra_col != NULL ){
+                            int extra_num = col_name_to_int_main( node->extra_col , c->select.from   ) ; 
+                            emit(c , column_op ,cursor , extra_num , reg_right  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_right , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_right , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_right , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_right , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
                     }
-                    else {
-                        if (node->num_value != NULL ){
-                            emit(c , integer_op , *node->num_value , reg_right , -1  , NULL  ) ;   
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_left ,reg_right , reg , -1 , NULL ) ;    
+            }
+            else {
+                int reg_temp = c->register_counter++  ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
                         }
-                        else if (node->char_value != NULL ){
-                            emit(c , string_op ,-1 , reg_right , -1  , (void*)node->char_value   ) ;   
-                        }
-                        else if (node->float_val != NULL ){
-                            emit(c , real_op , -1, reg_right , -1  , (void*)node->float_val   ) ;   
-                        }
-                        else if (node->blob != NULL ){
-                            emit(c , blob_op ,-1 , reg_right , -1  , (void*)node->blob   ) ;   
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_temp , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_temp , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_temp , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_temp , -1  , (void*)node->blob   ) ;   
+                            }
                         }
                     }
-                }
-                reg = c->register_counter++  ; 
-                emit(c , operator ,reg_left ,reg_right , reg , -1 , NULL ) ;                   
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_temp ,NULL , reg , -1 , NULL ) ;    
+
+            }               
             }
 
 
@@ -541,7 +596,7 @@ engine{
                                 else if (node->float_val != NULL ){
                                     emit(c , real_op , -1, reg_left , N-1ULL  , (void*)node->float_val   ) ;   
                                 }
-                                else if (node->blob != NULL ){
+                                else if (node->blob != NULL ){p
                                     emit(c , blob_op ,-1 , reg_left , -1  , (void*)node->blob   ) ;   
                                 }
                             }
@@ -549,6 +604,7 @@ engine{
                 reg = c->register_counter++  ; 
                 emit(c , operator ,reg_left, reg_right , reg , -1 , NULL ) ;   
             }
+
             else if(node->left != NULL && node->right == NULL ){
                 int reg_left = func(c , node->left ) ; 
                 int reg_right =  c->register_counter++ ;  
@@ -7947,7 +8003,7 @@ bytecode {
 
                 case real_op:
                     byt->regis[op->p2].type = real_num;
-                    byt->regis[op->p2].val.r = op->p1;
+                    byt->regis[op->p2].val.r = (float*)op->p4;
                     break;
 
                 case copy_op:
@@ -9559,9 +9615,31 @@ bytecode {
                     }
                     break ; 
 
+                case is_null_no_jump : 
+                    if (byt->regis[op->p1].type == null_op ){
+                        byt->regis[op->p3].type = integer_op ; 
+                        byt->regis[op->p3].val.i = 1 ;
+                    }
+                    else {
+                        byt->regis[op->p3].type = integer_op ; 
+                        byt->regis[op->p3].val.i = 0 ;
+                    }
+                    break ; 
+
                 case is_not_null : 
                     if (byt->regis[op->p1].type != null_op ){
                         byt->pc = op->p2;
+                    }
+                    break ; 
+
+                case is_not_null_no_jump : 
+                    if (byt->regis[op->p1].type != null_op ){
+                        byt->regis[op->p3].type = integer_op ; 
+                        byt->regis[op->p3].val.i = 1 ;
+                    }
+                    else {
+                        byt->regis[op->p3].type = integer_op ; 
+                        byt->regis[op->p3].val.i = 0 ;
                     }
                     break ; 
 
@@ -9872,6 +9950,8 @@ int like_campare(reg *a , reg *b ){
         }
     }
 }
+
+
 
 
 

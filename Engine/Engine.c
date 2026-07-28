@@ -1,5 +1,14 @@
 engine{
-    
+    #include <limits.h>
+
+    typedef struct instruction{
+        compiler * c ;
+        int op_code ;
+        int p1 ; 
+        int p2 ;
+        int p3 ;
+        void * p4  ;
+    }
 
     typedef struct compiler{
         type * typ ; 
@@ -207,7 +216,7 @@ engine{
             }
     }
 
-//okay my brain got shut so yeah i am wirtijng this down here see the problem is na go to expre first asnd then check out like if the thing for like at the very end we reach then we need liek 2 operands for the ework i feel it kind of lackds do trace it out and then see whats the problem get it done here the from thing would be done as well side by side okay so yeah work from here okay 
+
     void select_parser_to_struct(  compiler *c , tree * select ){
         select_select_info sel = c->select.sel ; 
         int num =  0 ; 
@@ -385,6 +394,7 @@ engine{
         int register_num = c->register_counter++ ; 
         c->register_start = register_num ; 
         int loop_addr = c->count ; 
+        emit(c , eq_op , where_func(c ,c->select->where ) , -1  , INT_MAX , "BINARY" ) ; 
             for ( int i = 0 ; i < c->select.col_counter ; i++  ){
                 int num = col_name_to_int_main( c->select.sel[i].col_name , c->select.from   ) ; 
                 if (num != -1 ){
@@ -417,6 +427,7 @@ engine{
                 }
             }
         emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
+        c->typ[loop_addr].p2 = c->count ; 
         emit(c , next_cursor , cursor , loop_addr   , -1 , NULL ) ; 
         for ( int i = 0 ; i < c->select.col_counter ; i++  ){
             select_select_info *node = c->select.sel[i].col_name ; 
@@ -428,7 +439,7 @@ engine{
         emit(c, halt, -1, -1, -1, -1, NULL);
     }
 
-
+// one more boring stuff simply see liek here in the where na we have to check wheter the thing we have is 0 or 1 true or false if it is false you need to do the next command execute so for that one once you do the next command so now the thing is na we have the eq_op bytecode for the thing which like checks if the thing is  true or flase  then it like jumps to the next part the issue we dont know where the next_op thing will come in the execution so we simply put it as -1 and then we just updat ething thing when we find it simple as that 
 // okay one of the most insane boring thing which happens here is see man like the loop occurs in the bytecodes itself so when we like put the register_counter like see we did the thing and as soo nas we hit the next_op it calls the bytecoders which we passed on earleir the earleir one okay only that gets called we are not calling anything in the compile_seelct getting ti it is complelty different thing got it 
     
 
@@ -450,6 +461,14 @@ engine{
         emit(c , aggregate_step , node->acc_reg , reg , NULL , operation) ; 
     }
 
+
+    int where_func(compiler *c , select_select_info * node ){
+        int first_reg = c->register_counter ; 
+        int ans = func(c , node) ; 
+        emit(c , integer_op , 0 , INT_MAX , -1 , NULL ) ; 
+        c->register_counter = first_reg ; 
+        return ans ;  
+    }
 
     int  func(compiler *c , select_select_info * node ){
         int reg   ; 
@@ -573,13 +592,14 @@ engine{
                         }
                     }
                     reg = c->register_counter++  ; 
-                    emit(c , operator ,reg_temp ,NULL , reg , -1 , NULL ) ;    
+                    emit(c , operator ,reg_temp ,-1 , reg , -1 , NULL ) ;    
 
             }               
             }
 
 
             else if (node->right != NULL && node->left == NULL ) {
+            if (operator != is_null  && operator != is_not_null ){
                 int reg_right = func(c , node->right ) ; 
                 int reg_left =  c->register_counter++ ;  
                         if (1){
@@ -604,8 +624,37 @@ engine{
                 reg = c->register_counter++  ; 
                 emit(c , operator ,reg_left, reg_right , reg , -1 , NULL ) ;   
             }
+            else  {
+                    int reg_temp = func(c , node->right ) ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , column_op ,cursor , num , reg_temp  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_temp , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_temp , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_temp , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_temp , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_temp ,-1 , reg , -1 , NULL ) ;    
+
+            }    
+
+            }
+        }
 
             else if(node->left != NULL && node->right == NULL ){
+            if (operator != is_null  && operator != is_not_null ){
                 int reg_left = func(c , node->left ) ; 
                 int reg_right =  c->register_counter++ ;  
                         if (1){
@@ -629,6 +678,31 @@ engine{
                         }
                 reg = c->register_counter++  ; 
                 emit(c , operator ,reg_left , reg_right  , reg , -1 , NULL ) ;  
+            }
+            else  {
+                    int reg_temp = func(c , node->left ) ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , column_op ,cursor , num , reg_temp  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_temp , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_temp , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_temp , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_temp , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_temp ,-1 , reg , -1 , NULL ) ;    
+
             }
             else { 
                 int reg_right = func(c , node->right ) ; 

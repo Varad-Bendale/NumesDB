@@ -90,6 +90,8 @@ engine{
         select_from_info *from[300] ; 
         int tables_counter ; 
         select_from_info *where ; 
+        select_select_info *groupby[300] ;
+        int groupby_counter ; 
     }
 
     typedef struct sql_master {
@@ -216,10 +218,9 @@ engine{
             }
     }
 
-
     void select_parser_to_struct(  compiler *c , tree * select ){
-        select_select_info sel = c->select.sel ; 
-        int num =  0 ; 
+        select_select_info *sel = c->select->sel ; 
+        c->select.col_counter = 0 ; 
         int i = 0 ; 
         while ( i < select->num ){
             from_parser_to_struct(c , select ) ; 
@@ -229,78 +230,78 @@ engine{
                         for (int k = 0 ; k < c->tables_counter ; k++ ){
                             table * temp = lookup_table(table_list , c->select.from[k] ) ; 
                             for ( int j = 0 ; j < temp->num_of_columns ; j++ ){
-                                sel[num] = malloc(sizeof(select_select_info)) ; 
-                                sel[num]->col_name = temp->col[j].name ; 
-                                sel[num]->operator = NULL ; 
-                                sel[num]->left = NULL ; 
-                                sel[num]->right = NULL ; 
+                                sel[c->select.col_counter ] = malloc(sizeof(select_select_info)) ; 
+                                sel[c->select.col_counter ]->col_name = temp->col[j].name ; 
+                                sel[c->select.col_counter ]->operator = NULL ; 
+                                sel[c->select.col_counter ]->left = NULL ; 
+                                sel[c->select.col_counter ]->right = NULL ; 
                                 if (select->as != NULL ){
                                     sel[i]->as = select->as ; 
                                 }
-                                num++ ; 
+                                c->select.col_counter ++ ; 
                             }
                         }
                     }   
                     else  {
                         if (strcmp(select->children[i]->comp , "+")== 0 || strcmp(select->children[i]->comp, "-")== 0 || strcmp(select->children[i]->comp , "*")== 0  || strcmp(select->children[i]->comp , "/")== 0 || strcmp(select->children[i]->comp, "=")== 0 || strcmp(select->children[i]->comp , "!=")== 0  || strcmp(select->children[i]->comp, ">")== 0 ||  strcmp(select->children[i]->comp , ">=")== 0  || strcmp(select->children[i]->comp , "<")== 0 ||  strcmp(select->children[i]->comp , "<=")== 0 || strcmp(select->children[i]->comp , "GROUP_CONCAT")== 0 || strcmp(select->children[i]->comp, "MAX") == 0 || strcmp(select->children[i]->comp , "MIN") == 0 || strcmp(select->children[i]->comp, "COUNT") == 0 || strcmp(select->children[i]->comp, "AVG") == 0 || strcmp(select->children[i]->comp , "SUM") == 0){
-                                sel[num] = malloc(sizeof(select_select_info)) ; 
-                                sel[num] = expre(sel[num] , c , select->children[i] )  ; 
+                                sel[c->select.col_counter ] = malloc(sizeof(select_select_info)) ; 
+                                sel[c->select.col_counter ] = expre(sel[c->select.col_counter ] , c , select->children[i] )  ; 
                                 if (select->as != NULL ){
                                     sel[i]->as = select->as ; 
                                 }
-                                num++ ; 
+                                c->select.col_counter ++ ; 
                         }
                         else { 
                             if(col_name_to_int_main(select->children[i]->comp, c->select.from) != -1){
-                                sel[num] = malloc(sizeof(select_select_info)) ; 
-                                sel[num]->col_name = select->children[i]->comp ; 
-                                sel[num]->operator = NULL ; 
-                                sel[num]->left = NULL ; 
-                                sel[num]->right = NULL ; 
+                                sel[c->select.col_counter ] = malloc(sizeof(select_select_info)) ; 
+                                sel[c->select.col_counter ]->col_name = select->children[i]->comp ; 
+                                sel[c->select.col_counter ]->operator = NULL ; 
+                                sel[c->select.col_counter ]->left = NULL ; 
+                                sel[c->select.col_counter ]->right = NULL ; 
                                 if (select->as != NULL ){
                                     sel[i]->as = select->as ; 
                                 }
-                                num++ ;  
+                                c->select.col_counter ++ ;  
                             }
                             else { 
                                 int check = data_type_check(select->children[i]->comp);
                                 if (check == 0){
-                                    sel[num] = malloc(sizeof(select_select_info)) ; 
-                                    sel[num]->col_name =  NULL ; 
-                                    sel[num]->operator = NULL ; 
-                                    sel[num]->left = NULL ; 
-                                    sel[num]->right = NULL ; 
-                                    sel[num]->num_value = atoi(select->children[i]->comp);
-                                    num++ ; 
+                                    sel[c->select.col_counter ] = malloc(sizeof(select_select_info)) ; 
+                                    sel[c->select.col_counter ]->col_name =  NULL ; 
+                                    sel[c->select.col_counter ]->operator = NULL ; 
+                                    sel[c->select.col_counter ]->left = NULL ; 
+                                    sel[c->select.col_counter ]->right = NULL ; 
+                                    sel[c->select.col_counter ]->num_value = atoi(select->children[i]->comp);
+                                    c->select.col_counter ++ ; 
                                 }
                                 else if (check == 1){
-                                    sel[num] = malloc(sizeof(select_select_info)) ; 
-                                    sel[num]->col_name =  NULL ; 
-                                    sel[num]->operator = NULL ; 
-                                    sel[num]->left = NULL ; 
-                                    sel[num]->right = NULL ; 
-                                    sel[num++]->float_val = (float)atof(select->children[i]->comp);
-                                    num++ ; 
+                                    sel[c->select.col_counter ] = malloc(sizeof(select_select_info)) ; 
+                                    sel[nc->select.col_counter um]->col_name =  NULL ; 
+                                    sel[c->select.col_counter ]->operator = NULL ; 
+                                    sel[c->select.col_counter ]->left = NULL ; 
+                                    sel[c->select.col_counter ]->right = NULL ; 
+                                    sel[c->select.col_counter]->float_val = (float)atof(select->children[i]->comp);
+                                    c->select.col_counter ++ ; 
 
                                 }
                                 else if (check == 2){
-                                    sel[num] = malloc(sizeof(select_select_info)) ; 
-                                    sel[num]->col_name =  NULL ; 
-                                    sel[num]->operator = NULL ; 
-                                    sel[num]->left = NULL ; 
-                                    sel[num]->right = NULL ; 
-                                    sel[num++]->blob = select->children[i]->comp ;
-                                    num++ ; 
+                                    sel[c->select.col_counter ] = malloc(sizeof(select_select_info)) ; 
+                                    sel[c->select.col_counter ]->col_name =  NULL ; 
+                                    sel[c->select.col_counter ]->operator = NULL ; 
+                                    sel[c->select.col_counter ]->left = NULL ; 
+                                    sel[c->select.col_counter ]->right = NULL ; 
+                                    sel[c->select.col_counter]->blob = select->children[i]->comp ;
+                                    c->select.col_counter ++ ; 
 
                                 }
                                 else {
-                                    sel[num] = malloc(sizeof(select_select_info)) ; 
-                                    sel[num]->col_name =  NULL ; 
-                                    sel[num]->operator = NULL ; 
-                                    sel[num]->left = NULL ; 
-                                    sel[num]->right = NULL ; 
-                                    sel[num++]->char_value = select->children[i]->comp ;
-                                    num++ ; 
+                                    sel[c->select.col_counter ] = malloc(sizeof(select_select_info)) ; 
+                                    sel[c->select.col_counter ]->col_name =  NULL ; 
+                                    sel[c->select.col_counter ]->operator = NULL ; 
+                                    sel[c->select.col_counter ]->left = NULL ; 
+                                    sel[c->select.col_counter ]->right = NULL ; 
+                                    sel[c->select.col_counter ]->char_value = select->children[i]->comp ;
+                                    c->select.col_counter++ ; 
                                 }
                             }
                         }
@@ -329,7 +330,80 @@ engine{
 
             }
             else if (strcmp(select->children[i]->comp  , "GROUP BY") == 0 ){
-                
+                tree * groupby = c->select->children[i]->comp ; 
+                int k = 0 ; 
+                select_select_info *gb =  c->select->groupby ; 
+                    while (k < groupby->num && strcmp(groupby->children[k]->comp , "HAVING") != 0  ){
+                    if (strcmp(groupby->children[k]->comp, "+") == 0 || strcmp(groupby->children[k]->comp, "-") == 0 ||strcmp(groupby->children[k]->comp, "*") == 0 || strcmp(groupby->children[k]->comp, "/") == 0 || strcmp(groupby->children[k]->comp, "=") == 0 || strcmp(groupby->children[k]->comp, "!=") == 0 || strcmp(groupby->children[k]->comp, ">") == 0 || strcmp(groupby->children[k]->comp, ">=") == 0 || strcmp(groupby->children[k]->comp, "<") == 0 || strcmp(groupby->children[k]->comp, "<=") == 0 || strcmp(groupby->children[k]->comp, "GROUP_CONCAT") == 0 || strcmp(groupby->children[k]->comp, "MAX") == 0 || strcmp(groupby->children[k]->comp, "MIN") == 0 || strcmp(groupby->children[k]->comp, "COUNT") == 0 || strcmp(groupby->children[k]->comp, "AVG") == 0 || strcmp(groupby->children[k]->comp, "SUM") == 0) {
+                        gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
+                        gb[c->select.groupby_counter] =
+                        expre(gb[c->select.groupby_counter], c, groupby->children[k]);
+                        if (select->as != NULL) {
+                            gb[c->select.groupby_counter]->as = select->as;
+                        }
+                        c->select.groupby_counter++;
+                    }
+                    else {
+                        if (col_name_to_int_main(groupby->children[k]->comp, c->select.from) != -1) {
+                            gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
+                            gb[c->select.groupby_counter]->col_name = groupby->children[k]->comp;
+                            gb[c->select.groupby_counter]->operator = NULL;
+                            gb[c->select.groupby_counter]->left = NULL;
+                            gb[c->select.groupby_counter]->right = NULL;
+                            if (select->as != NULL) {
+                                gb[c->select.groupby_counter]->as = select->as;
+                            }
+                            c->select.groupby_counter++;
+                        }
+                        else {
+                            int check = data_type_check(groupby->children[k]->comp);
+                            if (check == 0) {
+                                gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
+                                gb[c->select.groupby_counter]->col_name = NULL;
+                                gb[c->select.groupby_counter]->operator = NULL;
+                                gb[c->select.groupby_counter]->left = NULL;
+                                gb[c->select.groupby_counter]->right = NULL;
+                                gb[c->select.groupby_counter]->num_value = atoi(groupby->children[k]->comp);
+                                c->select.groupby_counter++;
+                            }
+                            else if (check == 1) {
+
+                                gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
+                                gb[c->select.groupby_counter]->col_name = NULL;
+                                gb[c->select.groupby_counter]->operator = NULL;
+                                gb[c->select.groupby_counter]->left = NULL;
+                                gb[c->select.groupby_counter]->right = NULL;
+                                gb[c->select.groupby_counter]->float_val = (float)atof(groupby->children[k]->comp);
+                                c->select.groupby_counter++;
+                            }
+                            else if (check == 2) {
+
+                                gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
+                                gb[c->select.groupby_counter]->col_name = NULL;
+                                gb[c->select.groupby_counter]->operator = NULL;
+                                gb[c->select.groupby_counter]->left = NULL;
+                                gb[c->select.groupby_counter]->right = NULL;
+                                gb[c->select.groupby_counter]->blob =  groupby->children[k]->comp;
+                                c->select.groupby_counter++;
+                            }
+                            else {
+
+                                gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
+                                gb[c->select.groupby_counter]->col_name = NULL;
+                                gb[c->select.groupby_counter]->operator = NULL;
+                                gb[c->select.groupby_counter]->left = NULL;
+                                gb[c->select.groupby_counter]->right = NULL;
+                                gb[c->select.groupby_counter]->char_value = groupby->children[k]->comp;
+                                c->select.groupby_counter++;
+                            }
+                        }
+                    }
+
+                    k++;
+                }
+                else if (strcmp(groupby->children[k]->comp , "HAVING") == 0  ){
+                    
+                }
             }
             else if (strcmp(select->children[i]->comp  , "LIMIT") == 0 || strcmp(select->children[i]->comp  , "OFFSET") == 0  ){
 

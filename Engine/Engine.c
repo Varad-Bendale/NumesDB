@@ -15,6 +15,7 @@ engine{
         int count ; 
         int capacity ; 
         int register_counter ; 
+        int soter_cursor ; 
         int register_start ; 
         int cursor_num ; 
         select_info select ; 
@@ -154,7 +155,7 @@ engine{
                     expre(ans->right, c, temp->children[i]);
                 }
             }
-            else if (col_name_to_int_main(temp->children[i]->comp, c->select.from) != -1 ){
+            else if (col_name_to_int_main(temp->children[i]->comp, c->select) != -1 ){
                 if (ans->col_name != NULL ){
                      ans->extra_col = temp->children[i]->comp ;
                 }
@@ -252,7 +253,7 @@ engine{
                                 c->select.col_counter ++ ; 
                         }
                         else { 
-                            if(col_name_to_int_main(select->children[i]->comp, c->select.from) != -1){
+                            if(col_name_to_int_main(select->children[i]->comp, c->select) != -1){
                                 sel[c->select.col_counter ] = malloc(sizeof(select_select_info)) ; 
                                 sel[c->select.col_counter ]->col_name = select->children[i]->comp ; 
                                 sel[c->select.col_counter ]->operator = NULL ; 
@@ -344,7 +345,7 @@ engine{
                         c->select.groupby_counter++;
                     }
                     else {
-                        if (col_name_to_int_main(groupby->children[k]->comp, c->select.from) != -1) {
+                        if (col_name_to_int_main(groupby->children[k]->comp, c->select) != -1) {
                             gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
                             gb[c->select.groupby_counter]->col_name = groupby->children[k]->comp;
                             gb[c->select.groupby_counter]->operator = NULL;
@@ -421,10 +422,13 @@ engine{
         return -1  ; 
     }
 
-    int col_name_to_int_main( char * column_name , select_from_info from  ){
+
+    // the funtion below is wrong the entire of the structure is changed need to do it cool 
+
+    int col_name_to_int_main( char * column_name , select_info *sf  ){
         int num = -1 ; 
-        for ( int i = 0 ; i < from->tables_counter ; i++ ){
-            int number = col_name_to_int(column_name ,from->table_name[i] ) ; 
+        for ( int i = 0 ; i < sf->tables_counter ; i++ ){
+            int number = col_name_to_int(column_name ,sf->from[i]->table_name ) ; 
             if ( number  != -1  ){
                 if (num != -1 ){
                     return -1 ; 
@@ -469,8 +473,10 @@ engine{
         c->register_start = register_num ; 
         int loop_addr = c->count ; 
         emit(c , eq_op , where_func(c ,c->select->where ) , -1  , INT_MAX , "BINARY" ) ; 
+
+        if (c->select.groupby_counter == 0 ){
             for ( int i = 0 ; i < c->select.col_counter ; i++  ){
-                int num = col_name_to_int_main( c->select.sel[i].col_name , c->select.from   ) ; 
+                int num = col_name_to_int_main( c->select.sel[i].col_name , c->select   ) ; 
                 if (num != -1 ){
                     if (c->select.sel[i].operator == NULL ){
                         register_num = c->register_counter++ ; 
@@ -500,6 +506,43 @@ engine{
                     }
                 }
             }
+        }
+
+        else {
+            for ( int i = 0 ; i < c->select.col_counter ; i++  ){
+                int num = col_name_to_int_main( c->select.sel[i].col_name , c->select   ) ; 
+                if (num != -1 ){
+                    if (c->select.sel[i].operator == NULL ){
+                        register_num = c->register_counter++ ; 
+                        if (1){
+                            select_select_info *node = c->select.sel[i] ; 
+                            if (node->col_name != NULL ){
+                                emit(c , column_op ,cursor , num , register_num  , NULL  ) ;  
+                            }
+                            else {
+                                if (node->num_value != NULL ){
+                                    emit(c , integer_op , *node->num_value , register_num , -1  , NULL  ) ;   
+                                }
+                                else if (node->char_value != NULL ){
+                                    emit(c , string_op ,-1 , register_num , -1  , (void*)node->char_value   ) ;   
+                                }
+                                else if (node->float_val != NULL ){
+                                    emit(c , real_op , -1, register_num , -1  , (void*)node->float_val   ) ;   
+                                }
+                                else if (node->blob != NULL ){
+                                    emit(c , blob_op ,-1 , register_num , -1  , (void*)node->blob   ) ;   
+                                }
+                            }
+                        }
+                    }
+                    else { 
+                        int not_needed =  func(c ,c->select.sel[i] ) ; 
+                    }
+                }
+            }
+         }
+
+
         emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
         c->typ[loop_addr].p2 = c->count ; 
         emit(c , next_cursor , cursor , loop_addr   , -1 , NULL ) ; 
@@ -513,16 +556,42 @@ engine{
         emit(c, halt, -1, -1, -1, -1, NULL);
     }
 
-// one more boring stuff simply see liek here in the where na we have to check wheter the thing we have is 0 or 1 true or false if it is false you need to do the next command execute so for that one once you do the next command so now the thing is na we have the eq_op bytecode for the thing which like checks if the thing is  true or flase  then it like jumps to the next part the issue we dont know where the next_op thing will come in the execution so we simply put it as -1 and then we just updat ething thing when we find it simple as that 
-// okay one of the most insane boring thing which happens here is see man like the loop occurs in the bytecodes itself so when we like put the register_counter like see we did the thing and as soo nas we hit the next_op it calls the bytecoders which we passed on earleir the earleir one okay only that gets called we are not calling anything in the compile_seelct getting ti it is complelty different thing got it 
-    
+    // one more boring stuff simply see liek here in the where na we have to check wheter the thing we have is 0 or 1 true or false if it is false you need to do the next command execute so for that one once you do the next command so now the thing is na we have the eq_op bytecode for the thing which like checks if the thing is  true or flase  then it like jumps to the next part the issue we dont know where the next_op thing will come in the execution so we simply put it as -1 and then we just updat ething thing when we find it simple as that 
+    // okay one of the most insane boring thing which happens here is see man like the loop occurs in the bytecodes itself so when we like put the register_counter like see we did the thing and as soo nas we hit the next_op it calls the bytecoders which we passed on earleir the earleir one okay only that gets called we are not calling anything in the compile_seelct getting ti it is complelty different thing got it 
+        
 
+    void sort_groupby(compiler * c  ){
+        int i = 0 ; 
+        int start = c->register_start + c->register_counter ; 
+        int cur = start ; 
+        while ( i < c->select->groupby_counter ){
+            int num = col_name_to_int_main( c->select->groupby[i]->col_name , c->select   )   ; 
+            if (num != -1   ){
+                if (c->select->groupby[i]->operator != NULL ){
+                    int temp = c->register_counter ; 
+                    c->register_counter = cur ; 
+                    int node =  func(c ,c->select->groupby[i]  ) ;
+                    c->register_counter = temp ; 
+                }
+                else { 
+                    emit(c , column_op ,c->cursor_num , num , cur  , NULL  ) ;  
+                }
+            }
+            else { 
+                break ; 
+            }
+            i++ ; 
+            cur++ ; 
+        }
+        emit(c , make_record , start , cur , start , NULL ) ; 
+        emit(c , sorter_insert , c->cursor_num , start , -1  , NULL) ; 
+    }
 
     void aggregate_select(compiler *c , select_select_info * node  ){
         void * operation = node->operator ; 
         int reg ; 
         if (node->col_name != NULL) {             
-            int num = col_name_to_int_main(node->col_name, c->select.from);
+            int num = col_name_to_int_main(node->col_name, c->select);
             reg = c->register_counter++;
             emit(c, column_op, cursor, num, reg, NULL);
         }
@@ -543,6 +612,8 @@ engine{
         c->register_counter = first_reg ; 
         return ans ;  
     }
+
+
 
     int  func(compiler *c , select_select_info * node ){
         int reg   ; 
@@ -593,7 +664,7 @@ engine{
             if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
                 aggregate_select(c , node ) ; 
             }
-            int num = col_name_to_int_main( node->col_name , c->select.from   ) ; 
+            int num = col_name_to_int_main( node->col_name , c->select   ) ; 
             int cursor = c->cursor_num ; 
 
 
@@ -623,7 +694,7 @@ engine{
                     int reg_right =  c->register_counter++ ;    
                     if (1){
                         if (node->extra_col != NULL ){
-                            int extra_num = col_name_to_int_main( node->extra_col , c->select.from   ) ; 
+                            int extra_num = col_name_to_int_main( node->extra_col , c->select   ) ; 
                             emit(c , column_op ,cursor , extra_num , reg_right  , NULL  ) ;  
                         }
                         else {

@@ -223,6 +223,8 @@ bytecode {
     }__attribute__((packed)) 
 
 
+
+
     int compare_sort(const void * a, const void * b , void * sorter_e  ){
         sorter sort = (sorter *)sorter_e ; 
         sort_arr * first = (sort_arr * )a ; 
@@ -236,7 +238,7 @@ bytecode {
             long second_num  ;
             memcpy(&second_num, second->key, sizeof(long));
             if (first_num < second_num){
-                if (sort->keyinfo.dir == DESC  ){
+                if (sort->keyinfo->dir== DESC  ){
                     result =  1 ; 
                 }
                 else { 
@@ -244,7 +246,7 @@ bytecode {
                 }
             }
             else if (first_num > second_num){
-                if (sort->keyinfo.dir == DESC  ){
+                if (sort->keyinfo->dir== DESC  ){
                     result =  -1 ; 
                 }
                 else { 
@@ -252,7 +254,16 @@ bytecode {
                 }
             }
             else {
-                result =  0 ; 
+                if (sort->cols_to_look + 1 < sort->capacity ){
+                    sorter *temp = malloc(sizeof(sorter));
+                    *temp = *sort;                    
+                    temp->cols_to_look = sort->cols_to_look + 1;
+                    result = campare_sort(a , b , (void*)temp ) ; 
+
+                }
+                else { 
+                     result =  0 ; 
+                }
             }
         }
         else if ( ( first->key_type == real_num && second->key_type == real_num )  ){
@@ -261,7 +272,7 @@ bytecode {
             float second_num  ;
             memcpy(&second_num, second->key, sizeof(float));
             if (first_num < second_num){
-                if (sort->keyinfo.dir == DESC  ){
+                if (sort->keyinfo->dir== DESC  ){
                     result =  1 ; 
                 }
                 else { 
@@ -269,7 +280,7 @@ bytecode {
                 }
             }
             else if (first_num > second_num){
-                if (sort->keyinfo.dir == DESC  ){
+                if (sort->keyinfo->dir== DESC  ){
                     result =  -1 ; 
                 }
                 else { 
@@ -302,7 +313,7 @@ bytecode {
                 second_num = (float)tmp;
             }
             if (first_num < second_num){
-                if (sort->keyinfo.dir == DESC  ){
+                if (sort->keyinfo->dir == DESC  ){
                     result =  1 ; 
                 }
                 else { 
@@ -310,7 +321,7 @@ bytecode {
                 }
             }
             else if (first_num > second_num){
-                if (sort->keyinfo.dir == DESC  ){
+                if (sort->keyinfo->dir == DESC  ){
                     result =  -1 ; 
                 }
                 else {
@@ -318,7 +329,16 @@ bytecode {
                 }
             }
             else {
-                result =  0 ; 
+                if (sort->cols_to_look + 1 < sort->capacity ){
+                    sorter *temp = malloc(sizeof(sorter));
+                    *temp = *sort;                    
+                    temp->cols_to_look = sort->cols_to_look + 1;
+                    result = campare_sort(a , b , (void*)temp ) ; 
+
+                }
+                else { 
+                     result =  0 ; 
+                }
             }
         }
 
@@ -345,7 +365,7 @@ bytecode {
                     }
                 }
                 if (num_2 > num_1){
-                    if (sort->keyinfo.dir == DESC  ){
+                    if (sort->keyinfo->dir== DESC  ){
                         result =  1 ; 
                     }
                     else {
@@ -353,7 +373,7 @@ bytecode {
                     }
                 }
                 else if (num_2 < num_1){
-                    if (sort->keyinfo.dir == DESC  ){
+                    if (sort->keyinfo->dir== DESC  ){
                         result =  -1 ; 
                     }
                     else { 
@@ -361,7 +381,16 @@ bytecode {
                     }
                 }
                 else {
-                    result =  0 ; 
+                if (sort->cols_to_look + 1 < sort->capacity ){
+                    sorter *temp = malloc(sizeof(sorter));
+                    *temp = *sort;                    
+                    temp->cols_to_look = sort->cols_to_look + 1;
+                    result = campare_sort(a , b , (void*)temp ) ; 
+
+                }
+                else { 
+                     result =  0 ; 
+                }
                 }
             }    
 
@@ -384,7 +413,7 @@ bytecode {
                     }
                 }
                 if (num_2 > num_1){
-                    if (sort->keyinfo.dir == DESC  ){
+                    if (sort->keyinfo->dir== DESC  ){
                         result =  1 ; 
                     }
                     else { 
@@ -392,7 +421,7 @@ bytecode {
                     }
                 }
                 else if (num_2 < num_1){
-                    if (sort->keyinfo.dir == DESC  ){
+                    if (sort->keyinfo->dir== DESC  ){
                         result =  -1 ; 
                     }
                     else { 
@@ -400,7 +429,16 @@ bytecode {
                     }
                 }
                 else {
-                    result =  0 ; 
+                if (sort->cols_to_look + 1 < sort->capacity ){
+                    sorter *temp = malloc(sizeof(sorter));
+                    *temp = *sort;                    
+                    temp->cols_to_look = sort->cols_to_look + 1;
+                    result = campare_sort(a , b , (void*)temp ) ; 
+
+                }
+                else { 
+                     result =  0 ; 
+                }
                 }
             }   
 
@@ -435,7 +473,7 @@ bytecode {
                     }
                 }
                 if (num_2 > num_1){
-                    if (sort->keyinfo.dir == DESC  ){
+                    if (sort->keyinfo->dir== DESC  ){
                         result =  1 ; 
                     }
                     else { 
@@ -443,7 +481,7 @@ bytecode {
                     }
                 }
                 else if (num_2 < num_1){
-                    if (sort->keyinfo.dir == DESC  ){
+                    if (sort->keyinfo->dir== DESC  ){
                         result =  -1 ; 
                     }
                     else { 
@@ -451,7 +489,16 @@ bytecode {
                     }
                 }
                 else {
-                    result =  0 ; 
+                    if (sort->cols_to_look + 1 < sort->capacity ){
+                        sorter *temp = malloc(sizeof(sorter));
+                        *temp = *sort;                    
+                        temp->cols_to_look = sort->cols_to_look + 1;
+                        result = campare_sort(a , b , (void*)temp ) ; 
+
+                    }
+                    else { 
+                        result =  0 ; 
+                    }
                 }
             }   
 
@@ -2722,21 +2769,27 @@ bytecode {
                                 byt->sort[op->p1].capacity  = byt->sort[op->p1].capacity*2   ; 
                             }
                             byt->sort[op->p1].capacity = byt->sort[op->p1].capacity == 0 ? 4 : byt->sort[op->p1].capacity * 2;  
-                            sort_arr **tmp = realloc( byt->sort[op->p1].array, byt->sort[op->p1].capacity * sizeof(*byt->sort[op->p1].array)   );
+                            sort_arr *tmp = realloc( byt->sort[op->p1].array, byt->sort[op->p1].capacity * sizeof(*byt->sort[op->p1].array)   );
                             if (tmp == NULL) { 
                                 break; 
                             }
                             byt->sort[op->p1].array = tmp;
                         }
-                        byt->sort[op->p1].array[byt->sort[op->p1].row_count++ ] = byt->regis[op->p2] ; 
+                        sort_arr * temp  = malloc(sizeof(sort_arr)) ; 
+                        temp->array = malloc(byt->regis[op->p2].lenght);
+                        memcpy(temp->array, byt->regis[op->p2].val.s, byt->regis[op->p2].lenght ); 
+                        temp.len = byt->regis[op->p2].lenght  ;     
+                        temp->key = NULL;  
+                        temp->key_type = byt->regis[op->p2].key_type;    
+                        byt->sort[op->p1].array[byt->sort[op->p1].row_count++ ] = *temp ; 
+                        free(temp) ; 
                         break ; 
                     
 
 
                     
                 case sortersort : 
-                    byt->sort[op->p1] ; 
-                    qsort_r(byt->sort[op->p1].array  ,byt->sort[op->p1].keycols , sizeof(sort_arr) , campare_sort  , byt->sort[op->p1] ) ; 
+                    qsort_r(byt->sort[op->p1].array  ,byt->sort[op->p1].keycols , sizeof(sort_arr) , compare_sort  , byt->sort[op->p1] ) ; 
                     break ; 
 
 
@@ -2747,15 +2800,12 @@ bytecode {
                     }
                     break ; 
 
-                
                 case sorter_data : 
                     sort_arr *temp =  byt->sort[op->p1].array ; 
                     byt->regis[op->p2].lenght = temp->len[ byt->sort[op->p1].cursor]  ; 
                     byt->regis[op->p2].type =  blob_op ; 
                     byt->regis[op->p2].val.s = temp->array[ byt->sort[op->p1].cursor]  ; 
                     break ; 
-
-
 
 
                 case sorter_campare : 

@@ -93,7 +93,8 @@ engine{
         select_from_info *where ; 
         select_select_info *groupby[300] ;
         int groupby_counter ; 
-        char * gb_select_unique[300] ; 
+        int * gb_select_unique[300] ; 
+        int * hash[300] ; 
         int sel_uni_counter ; 
     }
 
@@ -511,12 +512,22 @@ engine{
         }
 
         else {
-            emit(c , sorter_open , c->sorter_cursor ,c->select->groupby_counter , -1 , { col_name_to_int_main(c->select->groupby[0]->col_name   , c->select)} ) ; 
+            emit(c , sorter_open , c->sorter_cursor ,c->select->groupby_counter , -1 , { col_name_to_int_main(c->select->groupby[sel_uni_counter]->col_name   , c->select)} ) ; 
+            get_all_select_stuff(c) ; 
+            get_all_hash_covered_gb(c) ; 
             int loop_addr_gb = c->count ; 
             sort_groupby(c) ; 
             emit(c , next_cursor , cursor , loop_addr_gb   , -1 , NULL ) ; 
             emit(c , rewind_cursor , cursor , -1 , -1 , -1 , NULL  ) ; 
             emit(c , sorter_sort , c->sorter_cursor , -1 , -1 , NULL ) ; 
+            bool first  = true ; 
+            emit(c , sorter_next , c->sorter_cursor , -1 , -1 , NULL ) ; 
+            emit(c , sorter_data , c->sorter_cursor , c->register_counter + 1   , -1 , NULL ) ; 
+            if (first == false ){
+                campare_registers(c) ; 
+            }
+            emit(c , copy_op , c->register_counter + 1  , c->register_counter , -1 , NULL ) ; 
+            first = false ; 
 
          }
 
@@ -525,7 +536,7 @@ engine{
         c->typ[loop_addr].p2 = c->count ; 
         emit(c , next_cursor , cursor , loop_addr   , -1 , NULL ) ; 
         for ( int i = 0 ; i < c->select.col_counter ; i++  ){
-            select_select_info *node = c->select.sel[i].col_name ; 
+            select_select_info *node = c->select->sel[i].col_name ; 
             if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
                 emit(c ,aggregate_final ,node->acc_reg , -1 , node->acc_reg  , NULL  ) ; 
             }
@@ -537,21 +548,123 @@ engine{
     // one more boring stuff simply see liek here in the where na we have to check wheter the thing we have is 0 or 1 true or false if it is false you need to do the next command execute so for that one once you do the next command so now the thing is na we have the eq_op bytecode for the thing which like checks if the thing is  true or flase  then it like jumps to the next part the issue we dont know where the next_op thing will come in the execution so we simply put it as -1 and then we just updat ething thing when we find it simple as that 
     // okay one of the most insane boring thing which happens here is see man like the loop occurs in the bytecodes itself so when we like put the register_counter like see we did the thing and as soo nas we hit the next_op it calls the bytecoders which we passed on earleir the earleir one okay only that gets called we are not calling anything in the compile_seelct getting ti it is complelty different thing got it 
         
+    int campare_registers(compiler * c ){
+        // yeah my brain broke here do the campre one make the loop working the groupby probably ends here try to get it done by tommorow and yeah do the having as well not that tough so yeah 
+        c->select->
+    }
+
+
     void get_all_select_stuff(compiler * c ){
         int i = 0 ; 
         while ( i < c->select->col_counter ){
-            if (c->select->sel[i]->operator ==  NULL ){
-                c->select->gb_select_unique[c->select->sel_uni_counter] = c->select->sel[i]->operator ; 
-            }
-            else {
-                select_select_info *temp = malloc(sizeof(select_select_info)) ; 
-                temp = c->select->sel[i]
-                while (temp->extra_col != NULL){
-                    // okay what you need to do from here is jsut take all the unique columns whichever you find in the thing and then you need to like take all of it traverse throught the tree get the ahding done put it in the groupby data and all set do the stuff according cool 
+             int num = col_name_to_int_main( c->select->sel[i]->col_name , c->select  )  ; 
+            if (num != -1 ){
+                if (c->select->sel[i]->operator ==  NULL ){
+                    if (c->select->hash[num] != num ){
+                        c->select->hash[num] = num  ; 
+                        c->select->gb_select_unique[c->select->sel_uni_counter++] = num ; 
+                    }
+                }
+                else {
+                    select_select_info *temp = malloc(sizeof(select_select_info)) ; 
+                    temp = c->select->sel[i] ; 
+                    if (temp->operator != NULL ){
+                        get_the_data_tree(temp , c->select) ; 
+                    }
+                }
+        }
+        }
+        return  ; 
+    }
+
+    void get_all_hash_covered_gb(compiler * c ){
+        int i = 0 ; 
+        int num ; 
+        while ( i < c->select->groupby_counter){
+            num = col_name_to_int_main( temp->col_name , c->select  )   ; 
+            if (num != -1 ){
+                if (c->select->groupby[i]->operator == NULL ){
+                    if ( c->select->hash[num] != num  ){
+                        c->select->hash[num] = num  ; 
+                    }
+                }
+                else { 
+                    get_the_tree_hash(c->select->groupby[i] , c->select) ; 
                 }
             }
         }
-        c->select
+        return ; 
+    }
+
+    void get_the_tree_hash(select_select_info * temp , select_info *  sf ){
+        int num = col_name_to_int_main( temp->col_name , sf  )  ; 
+        int extra_num ; 
+        if (num != -1 ){
+            if (temp->left == NULL && temp->right == NULL  ){
+                 extra_num = col_name_to_int_main( temp->extra_col , sf  )   ; 
+                if ( sf->hash[num] != num ){
+                    sf->hash[num] = num ; 
+                }
+                if (extra_num != -1 ){
+                    if ( sf->hash[extra_num] != extra_num ){
+                        sf->hash[extra_num] != extra_num  ; 
+                    }
+                 }
+                return  ; 
+            }
+
+            else { 
+                if ( sf->hash[num] != num ){
+                    sf->hash[num] = num; 
+                }
+            }
+        }
+
+        if (temp->left != NULL ){
+            get_the_data_tree(temp->left , sf) ; 
+        }
+        else if (temp->right != NULL ){
+            get_the_data_tree(temp->right , sf) ; 
+        }
+
+        return ; 
+    }
+
+
+
+    void get_the_data_tree(select_select_info * temp , select_info *  sf ){
+        int num = col_name_to_int_main( temp->col_name , sf  )  ; 
+        int extra_num ; 
+        if (num != -1 ){
+            if (temp->left == NULL && temp->right == NULL  ){
+                 extra_num = col_name_to_int_main( temp->extra_col , sf  )   ; 
+                if ( sf->hash[num] != num ){
+                    sf->hash[num] = num  ; 
+                    sf->gb_select_unique[sf->sel_uni_counter++ ] = num ; 
+                }
+                if ( sf->hash[extra_num] != extra_num ){
+                    sf->hash[extra_num] = extra_num  ; 
+                    sf->gb_select_unique[sf->sel_uni_counter++ ] = extra_num ; 
+                }
+                return  ; 
+            }
+
+            else { 
+                if ( sf->hash[num] != num ){
+                    sf->hash[num] = num  ; 
+                    sf->gb_select_unique[sf->sel_uni_counter++ ] = num ; 
+                }
+            }
+        }
+
+        if (temp->left != NULL ){
+            get_the_data_tree(temp->left , sf) ; 
+        }
+        else if (temp->right != NULL ){
+            get_the_data_tree(temp->right , sf) ; 
+        }
+
+        return ; 
     }
 
     void sort_groupby(compiler * c  ){
@@ -560,7 +673,13 @@ engine{
         int cur = start ; 
         int cursor_sort = c->sorter_cursor++ ; 
         int norm_cursor = c->cursor_num++  ; 
-        while ( i < c->select->groupby_counter ){
+        while ( i < c->select->sel_uni_counter){
+            emit(c , column_op ,norm_cursor , c->select->gb_select_unique[i] , cur  , NULL  ) ;    
+            i++ ; 
+            cur++ ; 
+        }
+        i = 0 ; 
+        while ( i < c->select->groupby_counter){
             int num = col_name_to_int_main( c->select->groupby[i]->col_name , c->select   )   ; 
             if (num != -1   ){
                 if (c->select->groupby[i]->operator != NULL ){
@@ -579,7 +698,6 @@ engine{
             i++ ; 
             cur++ ; 
         }
-        while ( i < )
         emit(c , make_record , start , cur , start , NULL ) ; 
         emit(c , sorter_insert , cursor_sort, start , -1  , NULL) ; 
     }

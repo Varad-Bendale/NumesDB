@@ -15,9 +15,10 @@ engine{
         int count ; 
         int capacity ; 
         int register_counter ; 
+        int sorter_cursor ; 
         int register_start ; 
         int cursor_num ; 
-        select_info select ; 
+        select_info *select ; 
     }
 
     typedef struct plan {
@@ -92,6 +93,8 @@ engine{
         select_from_info *where ; 
         select_select_info *groupby[300] ;
         int groupby_counter ; 
+        char * gb_select_unique[300] ; 
+        int sel_uni_counter ; 
     }
 
     typedef struct sql_master {
@@ -154,7 +157,7 @@ engine{
                     expre(ans->right, c, temp->children[i]);
                 }
             }
-            else if (col_name_to_int_main(temp->children[i]->comp, c->select.from) != -1 ){
+            else if (col_name_to_int_main(temp->children[i]->comp, c->select) != -1 ){
                 if (ans->col_name != NULL ){
                      ans->extra_col = temp->children[i]->comp ;
                 }
@@ -252,7 +255,7 @@ engine{
                                 c->select.col_counter ++ ; 
                         }
                         else { 
-                            if(col_name_to_int_main(select->children[i]->comp, c->select.from) != -1){
+                            if(col_name_to_int_main(select->children[i]->comp, c->select) != -1){
                                 sel[c->select.col_counter ] = malloc(sizeof(select_select_info)) ; 
                                 sel[c->select.col_counter ]->col_name = select->children[i]->comp ; 
                                 sel[c->select.col_counter ]->operator = NULL ; 
@@ -344,7 +347,7 @@ engine{
                         c->select.groupby_counter++;
                     }
                     else {
-                        if (col_name_to_int_main(groupby->children[k]->comp, c->select.from) != -1) {
+                        if (col_name_to_int_main(groupby->children[k]->comp, c->select) != -1) {
                             gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
                             gb[c->select.groupby_counter]->col_name = groupby->children[k]->comp;
                             gb[c->select.groupby_counter]->operator = NULL;
@@ -421,10 +424,13 @@ engine{
         return -1  ; 
     }
 
-    int col_name_to_int_main( char * column_name , select_from_info from  ){
+
+    // the funtion below is wrong the entire of the structure is changed need to do it cool 
+
+    int col_name_to_int_main( char * column_name , select_info *sf  ){
         int num = -1 ; 
-        for ( int i = 0 ; i < from->tables_counter ; i++ ){
-            int number = col_name_to_int(column_name ,from->table_name[i] ) ; 
+        for ( int i = 0 ; i < sf->tables_counter ; i++ ){
+            int number = col_name_to_int(column_name ,sf->from[i]->table_name ) ; 
             if ( number  != -1  ){
                 if (num != -1 ){
                     return -1 ; 
@@ -469,8 +475,10 @@ engine{
         c->register_start = register_num ; 
         int loop_addr = c->count ; 
         emit(c , eq_op , where_func(c ,c->select->where ) , -1  , INT_MAX , "BINARY" ) ; 
+
+        if (c->select.groupby_counter == 0 ){
             for ( int i = 0 ; i < c->select.col_counter ; i++  ){
-                int num = col_name_to_int_main( c->select.sel[i].col_name , c->select.from   ) ; 
+                int num = col_name_to_int_main( c->select.sel[i].col_name , c->select   ) ; 
                 if (num != -1 ){
                     if (c->select.sel[i].operator == NULL ){
                         register_num = c->register_counter++ ; 
@@ -500,6 +508,19 @@ engine{
                     }
                 }
             }
+        }
+
+        else {
+            emit(c , sorter_open , c->sorter_cursor ,c->select->groupby_counter , -1 , { col_name_to_int_main(c->select->groupby[0]->col_name   , c->select)} ) ; 
+            int loop_addr_gb = c->count ; 
+            sort_groupby(c) ; 
+            emit(c , next_cursor , cursor , loop_addr_gb   , -1 , NULL ) ; 
+            emit(c , rewind_cursor , cursor , -1 , -1 , -1 , NULL  ) ; 
+            emit(c , sorter_sort , c->sorter_cursor , -1 , -1 , NULL ) ; 
+
+         }
+
+
         emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
         c->typ[loop_addr].p2 = c->count ; 
         emit(c , next_cursor , cursor , loop_addr   , -1 , NULL ) ; 
@@ -513,16 +534,61 @@ engine{
         emit(c, halt, -1, -1, -1, -1, NULL);
     }
 
-// one more boring stuff simply see liek here in the where na we have to check wheter the thing we have is 0 or 1 true or false if it is false you need to do the next command execute so for that one once you do the next command so now the thing is na we have the eq_op bytecode for the thing which like checks if the thing is  true or flase  then it like jumps to the next part the issue we dont know where the next_op thing will come in the execution so we simply put it as -1 and then we just updat ething thing when we find it simple as that 
-// okay one of the most insane boring thing which happens here is see man like the loop occurs in the bytecodes itself so when we like put the register_counter like see we did the thing and as soo nas we hit the next_op it calls the bytecoders which we passed on earleir the earleir one okay only that gets called we are not calling anything in the compile_seelct getting ti it is complelty different thing got it 
-    
+    // one more boring stuff simply see liek here in the where na we have to check wheter the thing we have is 0 or 1 true or false if it is false you need to do the next command execute so for that one once you do the next command so now the thing is na we have the eq_op bytecode for the thing which like checks if the thing is  true or flase  then it like jumps to the next part the issue we dont know where the next_op thing will come in the execution so we simply put it as -1 and then we just updat ething thing when we find it simple as that 
+    // okay one of the most insane boring thing which happens here is see man like the loop occurs in the bytecodes itself so when we like put the register_counter like see we did the thing and as soo nas we hit the next_op it calls the bytecoders which we passed on earleir the earleir one okay only that gets called we are not calling anything in the compile_seelct getting ti it is complelty different thing got it 
+        
+    void get_all_select_stuff(compiler * c ){
+        int i = 0 ; 
+        while ( i < c->select->col_counter ){
+            if (c->select->sel[i]->operator ==  NULL ){
+                c->select->gb_select_unique[c->select->sel_uni_counter] = c->select->sel[i]->operator ; 
+            }
+            else {
+                select_select_info *temp = malloc(sizeof(select_select_info)) ; 
+                temp = c->select->sel[i]
+                while (temp->extra_col != NULL){
+                    // okay what you need to do from here is jsut take all the unique columns whichever you find in the thing and then you need to like take all of it traverse throught the tree get the ahding done put it in the groupby data and all set do the stuff according cool 
+                }
+            }
+        }
+        c->select
+    }
 
+    void sort_groupby(compiler * c  ){
+        int i = 0 ; 
+        int start = c->register_start + c->register_counter ; 
+        int cur = start ; 
+        int cursor_sort = c->sorter_cursor++ ; 
+        int norm_cursor = c->cursor_num++  ; 
+        while ( i < c->select->groupby_counter ){
+            int num = col_name_to_int_main( c->select->groupby[i]->col_name , c->select   )   ; 
+            if (num != -1   ){
+                if (c->select->groupby[i]->operator != NULL ){
+                    int temp = c->register_counter ; 
+                    c->register_counter = cur ; 
+                    int node =  func(c ,c->select->groupby[i]  ) ;
+                    c->register_counter = temp ; 
+                }
+                else { 
+                    emit(c , column_op ,norm_cursor , num , cur  , NULL  ) ;  
+                }
+            }
+            else { 
+                break ; 
+            }
+            i++ ; 
+            cur++ ; 
+        }
+        while ( i < )
+        emit(c , make_record , start , cur , start , NULL ) ; 
+        emit(c , sorter_insert , cursor_sort, start , -1  , NULL) ; 
+    }
 
     void aggregate_select(compiler *c , select_select_info * node  ){
         void * operation = node->operator ; 
         int reg ; 
         if (node->col_name != NULL) {             
-            int num = col_name_to_int_main(node->col_name, c->select.from);
+            int num = col_name_to_int_main(node->col_name, c->select);
             reg = c->register_counter++;
             emit(c, column_op, cursor, num, reg, NULL);
         }
@@ -543,6 +609,8 @@ engine{
         c->register_counter = first_reg ; 
         return ans ;  
     }
+
+
 
     int  func(compiler *c , select_select_info * node ){
         int reg   ; 
@@ -593,7 +661,7 @@ engine{
             if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
                 aggregate_select(c , node ) ; 
             }
-            int num = col_name_to_int_main( node->col_name , c->select.from   ) ; 
+            int num = col_name_to_int_main( node->col_name , c->select   ) ; 
             int cursor = c->cursor_num ; 
 
 
@@ -623,7 +691,7 @@ engine{
                     int reg_right =  c->register_counter++ ;    
                     if (1){
                         if (node->extra_col != NULL ){
-                            int extra_num = col_name_to_int_main( node->extra_col , c->select.from   ) ; 
+                            int extra_num = col_name_to_int_main( node->extra_col , c->select   ) ; 
                             emit(c , column_op ,cursor , extra_num , reg_right  , NULL  ) ;  
                         }
                         else {
@@ -7398,6 +7466,8 @@ bytecode {
     }__attribute__((packed)) 
 
 
+
+
     int compare_sort(const void * a, const void * b , void * sorter_e  ){
         sorter sort = (sorter *)sorter_e ; 
         sort_arr * first = (sort_arr * )a ; 
@@ -7411,7 +7481,7 @@ bytecode {
             long second_num  ;
             memcpy(&second_num, second->key, sizeof(long));
             if (first_num < second_num){
-                if (sort->keyinfo.dir == DESC  ){
+                if (sort->keyinfo->dir== DESC  ){
                     result =  1 ; 
                 }
                 else { 
@@ -7419,7 +7489,7 @@ bytecode {
                 }
             }
             else if (first_num > second_num){
-                if (sort->keyinfo.dir == DESC  ){
+                if (sort->keyinfo->dir== DESC  ){
                     result =  -1 ; 
                 }
                 else { 
@@ -7427,7 +7497,16 @@ bytecode {
                 }
             }
             else {
-                result =  0 ; 
+                if (sort->cols_to_look + 1 < sort->capacity ){
+                    sorter *temp = malloc(sizeof(sorter));
+                    *temp = *sort;                    
+                    temp->cols_to_look = sort->cols_to_look + 1;
+                    result = campare_sort(a , b , (void*)temp ) ; 
+
+                }
+                else { 
+                     result =  0 ; 
+                }
             }
         }
         else if ( ( first->key_type == real_num && second->key_type == real_num )  ){
@@ -7436,7 +7515,7 @@ bytecode {
             float second_num  ;
             memcpy(&second_num, second->key, sizeof(float));
             if (first_num < second_num){
-                if (sort->keyinfo.dir == DESC  ){
+                if (sort->keyinfo->dir== DESC  ){
                     result =  1 ; 
                 }
                 else { 
@@ -7444,7 +7523,7 @@ bytecode {
                 }
             }
             else if (first_num > second_num){
-                if (sort->keyinfo.dir == DESC  ){
+                if (sort->keyinfo->dir== DESC  ){
                     result =  -1 ; 
                 }
                 else { 
@@ -7477,7 +7556,7 @@ bytecode {
                 second_num = (float)tmp;
             }
             if (first_num < second_num){
-                if (sort->keyinfo.dir == DESC  ){
+                if (sort->keyinfo->dir == DESC  ){
                     result =  1 ; 
                 }
                 else { 
@@ -7485,7 +7564,7 @@ bytecode {
                 }
             }
             else if (first_num > second_num){
-                if (sort->keyinfo.dir == DESC  ){
+                if (sort->keyinfo->dir == DESC  ){
                     result =  -1 ; 
                 }
                 else {
@@ -7493,7 +7572,16 @@ bytecode {
                 }
             }
             else {
-                result =  0 ; 
+                if (sort->cols_to_look + 1 < sort->capacity ){
+                    sorter *temp = malloc(sizeof(sorter));
+                    *temp = *sort;                    
+                    temp->cols_to_look = sort->cols_to_look + 1;
+                    result = campare_sort(a , b , (void*)temp ) ; 
+
+                }
+                else { 
+                     result =  0 ; 
+                }
             }
         }
 
@@ -7520,7 +7608,7 @@ bytecode {
                     }
                 }
                 if (num_2 > num_1){
-                    if (sort->keyinfo.dir == DESC  ){
+                    if (sort->keyinfo->dir== DESC  ){
                         result =  1 ; 
                     }
                     else {
@@ -7528,7 +7616,7 @@ bytecode {
                     }
                 }
                 else if (num_2 < num_1){
-                    if (sort->keyinfo.dir == DESC  ){
+                    if (sort->keyinfo->dir== DESC  ){
                         result =  -1 ; 
                     }
                     else { 
@@ -7536,7 +7624,16 @@ bytecode {
                     }
                 }
                 else {
-                    result =  0 ; 
+                if (sort->cols_to_look + 1 < sort->capacity ){
+                    sorter *temp = malloc(sizeof(sorter));
+                    *temp = *sort;                    
+                    temp->cols_to_look = sort->cols_to_look + 1;
+                    result = campare_sort(a , b , (void*)temp ) ; 
+
+                }
+                else { 
+                     result =  0 ; 
+                }
                 }
             }    
 
@@ -7559,7 +7656,7 @@ bytecode {
                     }
                 }
                 if (num_2 > num_1){
-                    if (sort->keyinfo.dir == DESC  ){
+                    if (sort->keyinfo->dir== DESC  ){
                         result =  1 ; 
                     }
                     else { 
@@ -7567,7 +7664,7 @@ bytecode {
                     }
                 }
                 else if (num_2 < num_1){
-                    if (sort->keyinfo.dir == DESC  ){
+                    if (sort->keyinfo->dir== DESC  ){
                         result =  -1 ; 
                     }
                     else { 
@@ -7575,7 +7672,16 @@ bytecode {
                     }
                 }
                 else {
-                    result =  0 ; 
+                if (sort->cols_to_look + 1 < sort->capacity ){
+                    sorter *temp = malloc(sizeof(sorter));
+                    *temp = *sort;                    
+                    temp->cols_to_look = sort->cols_to_look + 1;
+                    result = campare_sort(a , b , (void*)temp ) ; 
+
+                }
+                else { 
+                     result =  0 ; 
+                }
                 }
             }   
 
@@ -7610,7 +7716,7 @@ bytecode {
                     }
                 }
                 if (num_2 > num_1){
-                    if (sort->keyinfo.dir == DESC  ){
+                    if (sort->keyinfo->dir== DESC  ){
                         result =  1 ; 
                     }
                     else { 
@@ -7618,7 +7724,7 @@ bytecode {
                     }
                 }
                 else if (num_2 < num_1){
-                    if (sort->keyinfo.dir == DESC  ){
+                    if (sort->keyinfo->dir== DESC  ){
                         result =  -1 ; 
                     }
                     else { 
@@ -7626,7 +7732,16 @@ bytecode {
                     }
                 }
                 else {
-                    result =  0 ; 
+                    if (sort->cols_to_look + 1 < sort->capacity ){
+                        sorter *temp = malloc(sizeof(sorter));
+                        *temp = *sort;                    
+                        temp->cols_to_look = sort->cols_to_look + 1;
+                        result = campare_sort(a , b , (void*)temp ) ; 
+
+                    }
+                    else { 
+                        result =  0 ; 
+                    }
                 }
             }   
 
@@ -9897,21 +10012,27 @@ bytecode {
                                 byt->sort[op->p1].capacity  = byt->sort[op->p1].capacity*2   ; 
                             }
                             byt->sort[op->p1].capacity = byt->sort[op->p1].capacity == 0 ? 4 : byt->sort[op->p1].capacity * 2;  
-                            sort_arr **tmp = realloc( byt->sort[op->p1].array, byt->sort[op->p1].capacity * sizeof(*byt->sort[op->p1].array)   );
+                            sort_arr *tmp = realloc( byt->sort[op->p1].array, byt->sort[op->p1].capacity * sizeof(*byt->sort[op->p1].array)   );
                             if (tmp == NULL) { 
                                 break; 
                             }
                             byt->sort[op->p1].array = tmp;
                         }
-                        byt->sort[op->p1].array[byt->sort[op->p1].row_count++ ] = byt->regis[op->p2] ; 
+                        sort_arr * temp  = malloc(sizeof(sort_arr)) ; 
+                        temp->array = malloc(byt->regis[op->p2].lenght);
+                        memcpy(temp->array, byt->regis[op->p2].val.s, byt->regis[op->p2].lenght ); 
+                        temp.len = byt->regis[op->p2].lenght  ;     
+                        temp->key = NULL;  
+                        temp->key_type = byt->regis[op->p2].key_type;    
+                        byt->sort[op->p1].array[byt->sort[op->p1].row_count++ ] = *temp ; 
+                        free(temp) ; 
                         break ; 
                     
 
 
                     
-                case sortersort : 
-                    byt->sort[op->p1] ; 
-                    qsort_r(byt->sort[op->p1].array  ,byt->sort[op->p1].keycols , sizeof(sort_arr) , campare_sort  , byt->sort[op->p1] ) ; 
+                case sorter_sort : 
+                    qsort_r(byt->sort[op->p1].array  ,byt->sort[op->p1].keycols , sizeof(sort_arr) , compare_sort  , byt->sort[op->p1] ) ; 
                     break ; 
 
 
@@ -9922,15 +10043,12 @@ bytecode {
                     }
                     break ; 
 
-                
                 case sorter_data : 
                     sort_arr *temp =  byt->sort[op->p1].array ; 
                     byt->regis[op->p2].lenght = temp->len[ byt->sort[op->p1].cursor]  ; 
                     byt->regis[op->p2].type =  blob_op ; 
                     byt->regis[op->p2].val.s = temp->array[ byt->sort[op->p1].cursor]  ; 
                     break ; 
-
-
 
 
                 case sorter_campare : 
@@ -10098,6 +10216,10 @@ int like_campare(reg *a , reg *b ){
         }
     }
 }
+
+
+
+
 
 }
 

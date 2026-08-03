@@ -15,10 +15,10 @@ engine{
         int count ; 
         int capacity ; 
         int register_counter ; 
-        int soter_cursor ; 
+        int sorter_cursor ; 
         int register_start ; 
         int cursor_num ; 
-        select_info select ; 
+        select_info *select ; 
     }
 
     typedef struct plan {
@@ -93,6 +93,8 @@ engine{
         select_from_info *where ; 
         select_select_info *groupby[300] ;
         int groupby_counter ; 
+        char * gb_select_unique[300] ; 
+        int sel_uni_counter ; 
     }
 
     typedef struct sql_master {
@@ -509,37 +511,13 @@ engine{
         }
 
         else {
-            for ( int i = 0 ; i < c->select.col_counter ; i++  ){
-                int num = col_name_to_int_main( c->select.sel[i].col_name , c->select   ) ; 
-                if (num != -1 ){
-                    if (c->select.sel[i].operator == NULL ){
-                        register_num = c->register_counter++ ; 
-                        if (1){
-                            select_select_info *node = c->select.sel[i] ; 
-                            if (node->col_name != NULL ){
-                                emit(c , column_op ,cursor , num , register_num  , NULL  ) ;  
-                            }
-                            else {
-                                if (node->num_value != NULL ){
-                                    emit(c , integer_op , *node->num_value , register_num , -1  , NULL  ) ;   
-                                }
-                                else if (node->char_value != NULL ){
-                                    emit(c , string_op ,-1 , register_num , -1  , (void*)node->char_value   ) ;   
-                                }
-                                else if (node->float_val != NULL ){
-                                    emit(c , real_op , -1, register_num , -1  , (void*)node->float_val   ) ;   
-                                }
-                                else if (node->blob != NULL ){
-                                    emit(c , blob_op ,-1 , register_num , -1  , (void*)node->blob   ) ;   
-                                }
-                            }
-                        }
-                    }
-                    else { 
-                        int not_needed =  func(c ,c->select.sel[i] ) ; 
-                    }
-                }
-            }
+            emit(c , sorter_open , c->sorter_cursor ,c->select->groupby_counter , -1 , { col_name_to_int_main(c->select->groupby[0]->col_name   , c->select)} ) ; 
+            int loop_addr_gb = c->count ; 
+            sort_groupby(c) ; 
+            emit(c , next_cursor , cursor , loop_addr_gb   , -1 , NULL ) ; 
+            emit(c , rewind_cursor , cursor , -1 , -1 , -1 , NULL  ) ; 
+            emit(c , sorter_sort , c->sorter_cursor , -1 , -1 , NULL ) ; 
+
          }
 
 
@@ -559,11 +537,29 @@ engine{
     // one more boring stuff simply see liek here in the where na we have to check wheter the thing we have is 0 or 1 true or false if it is false you need to do the next command execute so for that one once you do the next command so now the thing is na we have the eq_op bytecode for the thing which like checks if the thing is  true or flase  then it like jumps to the next part the issue we dont know where the next_op thing will come in the execution so we simply put it as -1 and then we just updat ething thing when we find it simple as that 
     // okay one of the most insane boring thing which happens here is see man like the loop occurs in the bytecodes itself so when we like put the register_counter like see we did the thing and as soo nas we hit the next_op it calls the bytecoders which we passed on earleir the earleir one okay only that gets called we are not calling anything in the compile_seelct getting ti it is complelty different thing got it 
         
+    void get_all_select_stuff(compiler * c ){
+        int i = 0 ; 
+        while ( i < c->select->col_counter ){
+            if (c->select->sel[i]->operator ==  NULL ){
+                c->select->gb_select_unique[c->select->sel_uni_counter] = c->select->sel[i]->operator ; 
+            }
+            else {
+                select_select_info *temp = malloc(sizeof(select_select_info)) ; 
+                temp = c->select->sel[i]
+                while (temp->extra_col != NULL){
+                    // okay what you need to do from here is jsut take all the unique columns whichever you find in the thing and then you need to like take all of it traverse throught the tree get the ahding done put it in the groupby data and all set do the stuff according cool 
+                }
+            }
+        }
+        c->select
+    }
 
     void sort_groupby(compiler * c  ){
         int i = 0 ; 
         int start = c->register_start + c->register_counter ; 
         int cur = start ; 
+        int cursor_sort = c->sorter_cursor++ ; 
+        int norm_cursor = c->cursor_num++  ; 
         while ( i < c->select->groupby_counter ){
             int num = col_name_to_int_main( c->select->groupby[i]->col_name , c->select   )   ; 
             if (num != -1   ){
@@ -574,7 +570,7 @@ engine{
                     c->register_counter = temp ; 
                 }
                 else { 
-                    emit(c , column_op ,c->cursor_num , num , cur  , NULL  ) ;  
+                    emit(c , column_op ,norm_cursor , num , cur  , NULL  ) ;  
                 }
             }
             else { 
@@ -583,8 +579,9 @@ engine{
             i++ ; 
             cur++ ; 
         }
+        while ( i < )
         emit(c , make_record , start , cur , start , NULL ) ; 
-        emit(c , sorter_insert , c->cursor_num , start , -1  , NULL) ; 
+        emit(c , sorter_insert , cursor_sort, start , -1  , NULL) ; 
     }
 
     void aggregate_select(compiler *c , select_select_info * node  ){

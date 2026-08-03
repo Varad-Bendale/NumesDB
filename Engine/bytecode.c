@@ -2788,7 +2788,7 @@ bytecode {
 
 
                     
-                case sortersort : 
+                case sorter_sort : 
                     qsort_r(byt->sort[op->p1].array  ,byt->sort[op->p1].keycols , sizeof(sort_arr) , compare_sort  , byt->sort[op->p1] ) ; 
                     break ; 
 

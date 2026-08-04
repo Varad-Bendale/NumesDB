@@ -1538,7 +1538,7 @@ bytecode {
 
 
 
-                    case eq_op : 
+                case eq_op : 
                     if ( byt->regis[op->p1].type == integer_num && byt->regis[op->p3].type == integer_num  ){
                         if (byt->regis[op->p1].val.i == byt->regis[op->p3].val.i ){
                             byt->pc = op->p2;
@@ -2807,6 +2807,43 @@ bytecode {
                     byt->regis[op->p2].val.s = temp->array[ byt->sort[op->p1].cursor]  ; 
                     break ; 
 
+                case gb_sorter_data:
+                    unsigned char * first = malloc(byt->regis[op->p1].lenght) ; 
+                    memcpy(first ,byt->regis[op->p1].val.s , byt->regis[op->p1].lenght ) ; 
+                    int key = op->p2 ; 
+                    int i  = 0 ; 
+                    int temp = 0 ; 
+                    int copy = 0 ; 
+                    unsigned char *tempo ; 
+                    while (i < byt->regis[op->p1].lenght ){
+                        type = blob[i];    
+                        temp++ ;    
+                        i  = i +  1;
+                        if (temp < key ){
+                            if (type == integer_num) {
+                                i = i +  sizeof(int);     
+                            }
+                             else if (type == real_num) {
+                                i = i +  sizeof(float);   
+                            }
+                             else if (type == string_num || type == blob_num) {
+                                int len;
+                                memcpy(&len, blob + i, sizeof(int));
+                                i = i +  sizeof(int);     
+                                i = i +  len;            
+                            }
+                        }
+                        else { 
+                             copy =  byt->regis[op->p1].lenght - i ; 
+                            memcpy(tempo , first+ i  , copy ) ; 
+                            break ; 
+                        }
+                    }
+                    byt->regis[op->p3].type = blob_num;
+                    byt->regis[op->p3].val.s = tempo ;
+                    byt->regis[op->p3].lenght = copy ;
+                    break ; 
+                    
 
                 case sorter_campare : 
                     sort_arr *temp =  byt->sort[op->p1].array ; 

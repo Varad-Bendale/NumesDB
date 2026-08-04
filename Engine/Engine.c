@@ -522,11 +522,20 @@ engine{
             emit(c , sorter_sort , c->sorter_cursor , -1 , -1 , NULL ) ; 
             bool first  = true ; 
             emit(c , sorter_next , c->sorter_cursor , -1 , -1 , NULL ) ; 
-            emit(c , sorter_data , c->sorter_cursor , c->register_counter + 1   , -1 , NULL ) ; 
             if (first == false ){
-                campare_registers(c) ; 
+                emit(c , sorter_data , c->sorter_cursor , c->register_counter + 1   , -1 , NULL ) ; 
+                emit(c ,gb_sorter_data , c->register_counter + 1   , c->select->sel_uni_counter , c->register_counter + 1 , NULL    ) ; 
+                emit(c , eq_op , c->register_counter + 1  , -1 ,  c->register_counter  , NULL  ) ; 
+                for ( int i = 0 ; i < c->select->col_counter ; i++ ){
+                    // okay waht needs to be done na see if the thing is equal we move forward and if the thing is not we need to go and treat the same okay so like we jump to the thing an dif not then we mvoe forward we treat them and then then we ddo goto so that the confution dont occur yeah i am bad i hope i write good 
+                }
+                emit(c , copy_op , c->register_counter + 1  , c->register_counter , -1 , NULL ) ; 
             }
-            emit(c , copy_op , c->register_counter + 1  , c->register_counter , -1 , NULL ) ; 
+            if (first == true ){
+                emit(c , sorter_data , c->sorter_cursor , c->register_counter   , -1 , NULL ) ; 
+                emit(c ,gb_sorter_data , c->register_counter + 1   , c->select->sel_uni_counter , c->register_counter + 1 , NULL    ) ; 
+            }
+
             first = false ; 
 
          }
@@ -549,9 +558,10 @@ engine{
     // okay one of the most insane boring thing which happens here is see man like the loop occurs in the bytecodes itself so when we like put the register_counter like see we did the thing and as soo nas we hit the next_op it calls the bytecoders which we passed on earleir the earleir one okay only that gets called we are not calling anything in the compile_seelct getting ti it is complelty different thing got it 
         
     int campare_registers(compiler * c ){
-        // yeah my brain broke here do the campre one make the loop working the groupby probably ends here try to get it done by tommorow and yeah do the having as well not that tough so yeah 
-        c->select->
+        emit()
     }
+
+
 
 
     void get_all_select_stuff(compiler * c ){
@@ -976,3 +986,8 @@ engine{
     }
 
 }
+
+
+
+
+

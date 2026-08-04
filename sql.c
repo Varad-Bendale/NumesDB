@@ -100,7 +100,6 @@ engine{
 
     typedef struct sql_master {
         uint32_t root_page_num ; 
-
     }
 
     typedef struct col_det{
@@ -462,31 +461,22 @@ engine{
         emit(c , begin_op  , -1 , -1 , -1 , NULL ) ; 
         int cursor = c->cursor_num++ ; 
         emit(c , open_read_op , cursor , sql_master->page_num ,  -1 , -1 , NULL    ) ; 
-        
-        for ( int i = 0 ; i < c->select.col_counter ; i++  ){
-            select_select_info *node = c->select.sel[i].col_name ; 
-            if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
-                node->acc_reg = c->register_counter++   ; 
-                emit(c ,aggregate_init ,node->acc_reg , -1 , -1 , NULL  ) ; 
-            }
-        }
-
         emit(c , rewind_cursor , cursor , -1 , -1 , -1 , NULL  ) ; 
         int register_num = c->register_counter++ ; 
         c->register_start = register_num ; 
         int loop_addr = c->count ; 
         emit(c , eq_op , where_func(c ,c->select->where ) , -1  , INT_MAX , "BINARY" ) ; 
-
         if (c->select.groupby_counter == 0 ){
             for ( int i = 0 ; i < c->select.col_counter ; i++  ){
                 int num = col_name_to_int_main( c->select.sel[i].col_name , c->select   ) ; 
-                if (num != -1 ){
                     if (c->select.sel[i].operator == NULL ){
                         register_num = c->register_counter++ ; 
                         if (1){
                             select_select_info *node = c->select.sel[i] ; 
                             if (node->col_name != NULL ){
-                                emit(c , column_op ,cursor , num , register_num  , NULL  ) ;  
+                                if (num != -1 ){
+                                 emit(c , column_op ,cursor , num , register_num  , NULL  ) ;  
+                                }
                             }
                             else {
                                 if (node->num_value != NULL ){
@@ -505,9 +495,10 @@ engine{
                         }
                     }
                     else { 
-                        int not_needed =  func(c ,c->select.sel[i] ) ; 
+                        if ( num != -1 ){
+                             int not_needed =  func(c ,c->select.sel[i] ) ; 
+                        }
                     }
-                }
             }
         }
 
@@ -523,17 +514,51 @@ engine{
             bool first  = true ; 
             emit(c , sorter_next , c->sorter_cursor , -1 , -1 , NULL ) ; 
             if (first == false ){
-                emit(c , sorter_data , c->sorter_cursor , c->register_counter + 1   , -1 , NULL ) ; 
-                emit(c ,gb_sorter_data , c->register_counter + 1   , c->select->sel_uni_counter , c->register_counter + 1 , NULL    ) ; 
-                emit(c , eq_op , c->register_counter + 1  , -1 ,  c->register_counter  , NULL  ) ; 
-                for ( int i = 0 ; i < c->select->col_counter ; i++ ){
-                    // okay waht needs to be done na see if the thing is equal we move forward and if the thing is not we need to go and treat the same okay so like we jump to the thing an dif not then we mvoe forward we treat them and then then we ddo goto so that the confution dont occur yeah i am bad i hope i write good 
+                emit(c , sorter_data , c->sorter_cursor , INT_MAX - 2    , -1 , NULL ) ; 
+                emit(c ,gb_sorter_data , INT_MAX - 2    , c->select->sel_uni_counter , INT_MAX - 2  , NULL    ) ; 
+                emit(c , eq_op , INT_MAX - 2   , -1 ,  INT_MAX - 1  , NULL  ) ; 
+                int addr = c->count ; 
+
+                for ( int i = 0 ; i < c->select.groupby_counter ; i++  ){
+                    int num = col_name_to_int_main( c->select.groupby[i].col_name , c->select   ) ; 
+                        if (c->select.groupby[i].operator == NULL ){
+                            register_num = c->register_counter++ ; 
+                            if (1){
+                                select_select_info *node = c->select.groupby[i] ; 
+                                if (node->col_name != NULL ){
+                                    if (num != -1 ){
+                                    emit(c , gb_specific_column_op , INT_MAX - 1 , num , register_num  , NULL  ) ;  
+                                    }
+                                }
+                                else {
+                                    if (node->num_value != NULL ){
+                                        emit(c , integer_op , *node->num_value , register_num , -1  , NULL  ) ;   
+                                    }
+                                    else if (node->char_value != NULL ){
+                                        emit(c , string_op ,-1 , register_num , -1  , (void*)node->char_value   ) ;   
+                                    }
+                                    else if (node->float_val != NULL ){
+                                        emit(c , real_op , -1, register_num , -1  , (void*)node->float_val   ) ;   
+                                    }
+                                    else if (node->blob != NULL ){
+                                        emit(c , blob_op ,-1 , register_num , -1  , (void*)node->blob   ) ;   
+                                    }
+                                }
+                            }
+                        }
+                        else { 
+                            if ( num != -1 ){
+                                int not_needed =  func(c ,c->select.groupby[i] ) ; 
+                            }
+                        }
                 }
-                emit(c , copy_op , c->register_counter + 1  , c->register_counter , -1 , NULL ) ; 
+
+
+                emit(c , copy_op , INT_MAX - 2  , INT_MAX -1  , -1 , NULL ) ; 
             }
             if (first == true ){
-                emit(c , sorter_data , c->sorter_cursor , c->register_counter   , -1 , NULL ) ; 
-                emit(c ,gb_sorter_data , c->register_counter + 1   , c->select->sel_uni_counter , c->register_counter + 1 , NULL    ) ; 
+                emit(c , sorter_data , c->sorter_cursor , INT_MAX -1   , -1 , NULL ) ; 
+                emit(c , gb_sorter_data , INT_MAX - 1  , c->select->sel_uni_counter , INT_MAX - 1 , NULL    ) ; 
             }
 
             first = false ; 
@@ -544,23 +569,12 @@ engine{
         emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
         c->typ[loop_addr].p2 = c->count ; 
         emit(c , next_cursor , cursor , loop_addr   , -1 , NULL ) ; 
-        for ( int i = 0 ; i < c->select.col_counter ; i++  ){
-            select_select_info *node = c->select->sel[i].col_name ; 
-            if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
-                emit(c ,aggregate_final ,node->acc_reg , -1 , node->acc_reg  , NULL  ) ; 
-            }
-        }
         emit(c, close_cursor_op , cursor, -1, -1, -1, NULL);
         emit(c, halt, -1, -1, -1, -1, NULL);
     }
 
     // one more boring stuff simply see liek here in the where na we have to check wheter the thing we have is 0 or 1 true or false if it is false you need to do the next command execute so for that one once you do the next command so now the thing is na we have the eq_op bytecode for the thing which like checks if the thing is  true or flase  then it like jumps to the next part the issue we dont know where the next_op thing will come in the execution so we simply put it as -1 and then we just updat ething thing when we find it simple as that 
     // okay one of the most insane boring thing which happens here is see man like the loop occurs in the bytecodes itself so when we like put the register_counter like see we did the thing and as soo nas we hit the next_op it calls the bytecoders which we passed on earleir the earleir one okay only that gets called we are not calling anything in the compile_seelct getting ti it is complelty different thing got it 
-        
-    int campare_registers(compiler * c ){
-        emit()
-    }
-
 
 
 
@@ -712,6 +726,7 @@ engine{
         emit(c , sorter_insert , cursor_sort, start , -1  , NULL) ; 
     }
 
+    // bug alert the aggregate init and the aggregate final pretty much break up everything in the thing itds just supported ffor the main stuff but for the function where the aggregate is pretty much used it breaks out there so yeah need to do it 
     void aggregate_select(compiler *c , select_select_info * node  ){
         void * operation = node->operator ; 
         int reg ; 
@@ -740,7 +755,7 @@ engine{
 
 
 
-    int  func(compiler *c , select_select_info * node ){
+    int  func(compiler *c , select_select_info * node , bool final  ){
         int reg   ; 
         int operator ; 
         if (node->operator != NULL  ) {
@@ -787,7 +802,14 @@ engine{
                  operator = is_not_null ; 
             }
             if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
+                if (node->acc_reg == -1 ){
+                    node->acc_reg = c->register_counter++   ; 
+                    emit(c ,aggregate_init ,node->acc_reg , -1 , -1 , NULL  ) ; 
+                }
                 aggregate_select(c , node ) ; 
+                if (final == true ){
+                    emit(c ,aggregate_final ,node->acc_reg , -1 , node->acc_reg  , NULL  ) ; 
+                }
             }
             int num = col_name_to_int_main( node->col_name , c->select   ) ; 
             int cursor = c->cursor_num ; 
@@ -870,7 +892,7 @@ engine{
 
             else if (node->right != NULL && node->left == NULL ) {
             if (operator != is_null  && operator != is_not_null ){
-                int reg_right = func(c , node->right ) ; 
+                int reg_right = func(c , node->right ,final  ) ; 
                 int reg_left =  c->register_counter++ ;  
                         if (1){
                             if (node->col_name != NULL ){
@@ -895,7 +917,7 @@ engine{
                 emit(c , operator ,reg_left, reg_right , reg , -1 , NULL ) ;   
             }
             else  {
-                    int reg_temp = func(c , node->right ) ; 
+                    int reg_temp = func(c , node->right ,final ) ; 
                     if (1){
                         if (node->col_name != NULL ){
                             emit(c , column_op ,cursor , num , reg_temp  , NULL  ) ;  
@@ -925,7 +947,7 @@ engine{
 
             else if(node->left != NULL && node->right == NULL ){
             if (operator != is_null  && operator != is_not_null ){
-                int reg_left = func(c , node->left ) ; 
+                int reg_left = func(c , node->left,final  ) ; 
                 int reg_right =  c->register_counter++ ;  
                         if (1){
                             if (node->col_name != NULL ){
@@ -950,7 +972,7 @@ engine{
                 emit(c , operator ,reg_left , reg_right  , reg , -1 , NULL ) ;  
             }
             else  {
-                    int reg_temp = func(c , node->left ) ; 
+                    int reg_temp = func(c , node->left ,final ) ; 
                     if (1){
                         if (node->col_name != NULL ){
                             emit(c , column_op ,cursor , num , reg_temp  , NULL  ) ;  
@@ -975,8 +997,263 @@ engine{
 
             }
             else { 
-                int reg_right = func(c , node->right ) ; 
-                int reg_left = func(c , node->left ) ; 
+                int reg_right = func(c , node->right ,final  ) ; 
+                int reg_left = func(c , node->left,final  ) ; 
+                reg = c->register_counter++  ; 
+                emit(c , operator ,reg_left , reg_right , reg , -1 , NULL ) ;  
+            }
+        }
+
+        return reg ; 
+    }
+
+
+
+
+    int  group_by_func(compiler *c , select_select_info * node  , bool final ){
+        int reg   ; 
+        int operator ; 
+        if (node->operator != NULL  ) {
+            if (strcmp(node->operator , "+")== 0 ){
+                operator = add_op ; 
+            }
+            if (strcmp(node->operator , "-")== 0 ){
+                operator = subs_op ; 
+            }
+            if (strcmp(node->operator , "*")== 0 ){
+                operator = mul_op ; 
+            }   
+            if (strcmp(node->operator , "/")== 0 ){
+                operator = divide_op ; 
+            }
+            if (strcmp(node->operator , "=")== 0 ){
+                operator = eq_select_op ; 
+            }
+            if (strcmp(node->operator , "!=")== 0 ){
+                 operator = ne_select_op ; 
+            }
+            if (strcmp(node->operator , ">")== 0 ){
+                 operator = gt_select_op ; 
+            }
+            if (strcmp(node->operator , ">=")== 0 ){
+                    operator = ge_select_op ; 
+            }
+            if (strcmp(node->operator , "<")== 0 ){
+                 operator = lt_select_op ; 
+            }
+            if (strcmp(node->operator , "<=")== 0 ){
+                 operator = le_select_op ; 
+            }
+            if (strcmp(node->operator , "AND")== 0 ){
+                 operator = and_op ; 
+            }
+            if (strcmp(node->operator , "OR")== 0 ){
+                 operator = or_op ; 
+            }
+            if (strcmp(node->operator , "IS NULL")== 0 ){
+                 operator = is_null ; 
+            }
+            if (strcmp(node->operator , "IS NOT NULL")== 0 ){
+                 operator = is_not_null ; 
+            }
+            if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
+                if (node->acc_reg == -1 ){
+                    node->acc_reg = c->register_counter++   ; 
+                    emit(c ,aggregate_init ,node->acc_reg , -1 , -1 , NULL  ) ; 
+                }
+                aggregate_select(c , node ) ; 
+                if (final == true ){
+                    emit(c ,aggregate_final ,node->acc_reg , -1 , node->acc_reg  , NULL  ) ; 
+                }
+            }
+            int num = col_name_to_int_main( node->col_name , c->select   ) ; 
+            int cursor = c->cursor_num ; 
+
+
+            if (node->right == NULL && node->left == NULL  ){
+                if (operator != is_null  && operator != is_not_null ){
+                    int reg_left = c->register_counter++ ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , gb_specific_column_op , INT_MAX - 1 , num , reg_left  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_left , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_left , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_left , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_left , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+
+                    int reg_right =  c->register_counter++ ;    
+                    if (1){
+                        if (node->extra_col != NULL ){
+                            int extra_num = col_name_to_int_main( node->extra_col , c->select   ) ; 
+                            emit(c , gb_specific_column_op , INT_MAX - 1 , extra_num , reg_left  , NULL  ) ;   
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_right , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_right , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_right , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_right , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_left ,reg_right , reg , -1 , NULL ) ;    
+                }
+                else {
+                    int reg_temp = c->register_counter++  ; 
+                        if (1){
+                            if (node->col_name != NULL ){
+                                emit(c , gb_specific_column_op , INT_MAX - 1 , num , reg_left  , NULL  ) ; 
+                            }
+                            else {
+                                if (node->num_value != NULL ){
+                                    emit(c , integer_op , *node->num_value , reg_temp , -1  , NULL  ) ;   
+                                }
+                                else if (node->char_value != NULL ){
+                                    emit(c , string_op ,-1 , reg_temp , -1  , (void*)node->char_value   ) ;   
+                                }
+                                else if (node->float_val != NULL ){
+                                    emit(c , real_op , -1, reg_temp , -1  , (void*)node->float_val   ) ;   
+                                }
+                                else if (node->blob != NULL ){
+                                    emit(c , blob_op ,-1 , reg_temp , -1  , (void*)node->blob   ) ;   
+                                }
+                            }
+                        }
+                        reg = c->register_counter++  ; 
+                        emit(c , operator ,reg_temp ,-1 , reg , -1 , NULL ) ;    
+
+                }               
+            }
+
+
+            else if (node->right != NULL && node->left == NULL ) {
+            if (operator != is_null  && operator != is_not_null ){
+                int reg_right = group_by_func(c , node->right  , final ) ; 
+                int reg_left =  c->register_counter++ ;  
+                        if (1){
+                            if (node->col_name != NULL ){
+                                emit(c , gb_specific_column_op , INT_MAX - 1 , num , reg_left  , NULL  ) ; 
+                            }
+                            else {
+                                if (node->num_value != NULL ){
+                                    emit(c , integer_op , *node->num_value , reg_left , NULL  , NULL  ) ;   
+                                }
+                                else if (node->char_value != NULL ){
+                                    emit(c , string_op ,-1 , reg_left , -1  , (void*)node->char_value   ) ;   
+                                }
+                                else if (node->float_val != NULL ){
+                                    emit(c , real_op , -1, reg_left , N-1ULL  , (void*)node->float_val   ) ;   
+                                }
+                                else if (node->blob != NULL ){p
+                                    emit(c , blob_op ,-1 , reg_left , -1  , (void*)node->blob   ) ;   
+                                }
+                            }
+                        }
+                reg = c->register_counter++  ; 
+                emit(c , operator ,reg_left, reg_right , reg , -1 , NULL ) ;   
+            }
+            else  {
+                    int reg_temp =  group_by_func(c , node->right  , final ) ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , gb_specific_column_op , INT_MAX - 1 , num , reg_temp  , NULL  ) ; 
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_temp , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_temp , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_temp , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_temp , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_temp ,-1 , reg , -1 , NULL ) ;    
+
+            }    
+
+            }
+        }
+
+            else if(node->left != NULL && node->right == NULL ){
+            if (operator != is_null  && operator != is_not_null ){
+                int reg_left =  group_by_func(c , node->left  , final ) ; 
+                int reg_right =  c->register_counter++ ;  
+                        if (1){
+                            if (node->col_name != NULL ){
+                                emit(c , gb_specific_column_op , INT_MAX - 1 , num , reg_right  , NULL  ) ; 
+                            }
+                            else {
+                                if (node->num_value != NULL ){
+                                    emit(c , integer_op , *node->num_value , reg_right , -1  , NULL  ) ;   
+                                }
+                                else if (node->char_value != NULL ){
+                                    emit(c , string_op ,-1 , reg_right , -1  , (void*)node->char_value   ) ;   
+                                }
+                                else if (node->float_val != NULL ){
+                                    emit(c , real_op , -1, reg_right , -1  , (void*)node->float_val   ) ;   
+                                }
+                                else if (node->blob != NULL ){
+                                    emit(c , blob_op ,-1 , reg_right , -1  , (void*)node->blob   ) ;   
+                                }
+                            }
+                        }
+                reg = c->register_counter++  ; 
+                emit(c , operator ,reg_left , reg_right  , reg , -1 , NULL ) ;  
+            }
+            else  {
+                    int reg_temp =  group_by_func(c , node->left  , final ) ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , gb_specific_column_op , INT_MAX - 1 , num , reg_temp  , NULL  ) ; 
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_temp , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_temp , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_temp , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_temp , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_temp ,-1 , reg , -1 , NULL ) ;    
+
+            }
+            else { 
+                int reg_right =  group_by_func(c , node->right  , final ) ; 
+                int reg_left =  group_by_func(c , node->left  , final ) ; 
                 reg = c->register_counter++  ; 
                 emit(c , operator ,reg_left , reg_right , reg , -1 , NULL ) ;  
             }
@@ -7371,6 +7648,8 @@ engine{
     }
 }
 
+
+}
 #include<strings.h>
 define PAGE_SIZE 4096
 bytecode { 
@@ -10216,6 +10495,65 @@ bytecode {
                     byt->regis[op->p3].val.s = tempo ;
                     byt->regis[op->p3].lenght = copy ;
                     break ; 
+
+
+                case gb_specific_column_op : 
+                    unsigned char * first = malloc(byt->regis[op->p1].lenght) ; 
+                    memcpy(first ,byt->regis[op->p1].val.s , byt->regis[op->p1].lenght ) ; 
+                    int pos = 0 ;
+                    unsigned char thing = first; 
+                    unsigned char temp = thing[pos] ;  
+                    int key = op->p2 ; 
+                    reg * ans = byt->regis[op->p3] ; 
+                    for ( int i =  0 ; i < key ; i++ ){
+                        temp = thing[pos] ; 
+                        pos = pos + 1;  
+                        if (temp == integer_num){
+                            pos = pos + sizeof(long) ; 
+                        }
+                        else if (temp == real_num){
+                            pos = pos + sizeof(float ) ;   
+                        }
+                        else if (temp == string_num ){
+                            uint32_t size ; 
+                            memcpy(&size , thing + pos , sizeof(uint32_t)) ; 
+                            pos = pos + sizeof(uint32_t) ; 
+                            pos = pos + size ; 
+                        }
+                    }
+
+                    int len = 0  ; 
+                    pos = pos + 1 ; 
+                    if (temp == integer_num){
+                        len =  sizeof(long) ; 
+                        ans->type = integer_num ; 
+                    }
+                    else if (temp == real_num){
+                        len =  sizeof(float ) ; 
+                        ans->type =  real_num ; 
+                    }
+                    else if (temp == string_num ){
+                        uint32_t size ; 
+                        memcpy(&size , thing + pos , sizeof(uint32_t)) ; 
+                        len =  sizeof(uint32_t) ; 
+                        len = len + size ; 
+                        ans->type = string_num ; 
+                    }
+
+                    unsigned char * valli = malloc(len ) ; 
+                    memcpy(valli , thing + pos   , len ) ; 
+                    if (ans->type == integer_num ){
+                        ans->val.i = (int)valli ;  
+                    }
+                    else if (ans->type == real_num ){
+                        ans->val.r = (float)valli ;     
+                    }
+                    else {
+                        ans->val.s = valli ; 
+                        ans->lenght = len ; 
+                    }
+                    byt->btr[op->p1].null == false ; 
+                    break ; 
                     
 
                 case sorter_campare : 
@@ -10382,12 +10720,6 @@ int like_campare(reg *a , reg *b ){
             }
         }
     }
-}
-
-
-
-
-
 }
 
 

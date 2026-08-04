@@ -2843,6 +2843,65 @@ bytecode {
                     byt->regis[op->p3].val.s = tempo ;
                     byt->regis[op->p3].lenght = copy ;
                     break ; 
+
+
+                case gb_specific_column_op : 
+                    unsigned char * first = malloc(byt->regis[op->p1].lenght) ; 
+                    memcpy(first ,byt->regis[op->p1].val.s , byt->regis[op->p1].lenght ) ; 
+                    int pos = 0 ;
+                    unsigned char thing = first; 
+                    unsigned char temp = thing[pos] ;  
+                    int key = op->p2 ; 
+                    reg * ans = byt->regis[op->p3] ; 
+                    for ( int i =  0 ; i < key ; i++ ){
+                        temp = thing[pos] ; 
+                        pos = pos + 1;  
+                        if (temp == integer_num){
+                            pos = pos + sizeof(long) ; 
+                        }
+                        else if (temp == real_num){
+                            pos = pos + sizeof(float ) ;   
+                        }
+                        else if (temp == string_num ){
+                            uint32_t size ; 
+                            memcpy(&size , thing + pos , sizeof(uint32_t)) ; 
+                            pos = pos + sizeof(uint32_t) ; 
+                            pos = pos + size ; 
+                        }
+                    }
+
+                    int len = 0  ; 
+                    pos = pos + 1 ; 
+                    if (temp == integer_num){
+                        len =  sizeof(long) ; 
+                        ans->type = integer_num ; 
+                    }
+                    else if (temp == real_num){
+                        len =  sizeof(float ) ; 
+                        ans->type =  real_num ; 
+                    }
+                    else if (temp == string_num ){
+                        uint32_t size ; 
+                        memcpy(&size , thing + pos , sizeof(uint32_t)) ; 
+                        len =  sizeof(uint32_t) ; 
+                        len = len + size ; 
+                        ans->type = string_num ; 
+                    }
+
+                    unsigned char * valli = malloc(len ) ; 
+                    memcpy(valli , thing + pos   , len ) ; 
+                    if (ans->type == integer_num ){
+                        ans->val.i = (int)valli ;  
+                    }
+                    else if (ans->type == real_num ){
+                        ans->val.r = (float)valli ;     
+                    }
+                    else {
+                        ans->val.s = valli ; 
+                        ans->lenght = len ; 
+                    }
+                    byt->btr[op->p1].null == false ; 
+                    break ; 
                     
 
                 case sorter_campare : 

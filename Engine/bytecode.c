@@ -2796,6 +2796,8 @@ bytecode {
                 case sorter_next : 
                     if (byt->sort[op->p1].cursor < byt->sort[op->p1].row_count ){
                         byt->sort[op->p1].cursor++ ; 
+                    }
+                    else { 
                         byt->pc = op->p2; 
                     }
                     break ; 

@@ -86,6 +86,20 @@ engine{
         select_select_info * on ; 
     }
 
+    typedef struct extra_info_ob{
+        char * nulls   ; 
+        char * order   ; 
+    }
+    typedef struct select_ob_info{
+        char *ob_name ; 
+        int dir ; 
+        extra_info_ob * ex ; 
+        char * as  ; 
+        char * operator ; 
+        select_ob_info *left ; 
+        select_ob_info * right ; 
+    }
+
     typedef struct select_info{
         select_select_info *sel[300] ;
         int col_counter ;  
@@ -98,6 +112,8 @@ engine{
         int * hash[300] ; 
         int sel_uni_counter ; 
         select_from_info *having ; 
+        select_ob_info *orderby[300] ; 
+        int orderby_counter ; 
     }
 
     typedef struct sql_master {
@@ -329,7 +345,19 @@ engine{
                 c->select->where = expre(temp , c , select->children[i] ) ; 
             }
             else if(strcmp(select->children[i]->comp  , "ORDER BY") == 0 ){
+                tree * orderby = c->select->children[i] ;  
+                select_ob_info *ob =  c->select->orderby ; 
+                int k = 0 ; 
+                for (  k < orderby->num ){
+                 if (c->select->groupby_counter > 0 ){
 
+                 }
+                 else { 
+                    if (orderby->children[k]->operator != NULL ){
+                        ob->orderby[] // i kind of see an error in the groupby honestly in here like the the direct the data strucutre is taken i kind of have a feelling its wrong please do have a look in it later and yeah do it its quite easy 
+                    }
+                 }
+                }
             }
             else if (strcmp(select->children[i]->comp  , "CASE") == 0 ){
 

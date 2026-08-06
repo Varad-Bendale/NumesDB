@@ -2815,11 +2815,12 @@ bytecode {
                     int key = op->p2 ; 
                     int i  = 0 ; 
                     int temp = 0 ; 
+                    int type = integer_num ; 
                     int copy = 0 ; 
                     unsigned char *tempo ; 
+                    unsigned char *blob = byt->regis[op->p1].val.s  ; 
                     while (i < byt->regis[op->p1].lenght ){
                         type = blob[i];    
-                        temp++ ;    
                         i  = i +  1;
                         if (temp < key ){
                             if (type == integer_num) {
@@ -2836,10 +2837,12 @@ bytecode {
                             }
                         }
                         else { 
-                             copy =  byt->regis[op->p1].lenght - i ; 
+                            copy =  byt->regis[op->p1].lenght - i ; 
+                            tempo = malloc(copy); 
                             memcpy(tempo , first+ i  , copy ) ; 
                             break ; 
                         }
+                        temp++ ;    
                     }
                     byt->regis[op->p3].type = blob_num;
                     byt->regis[op->p3].val.s = tempo ;
@@ -2851,15 +2854,15 @@ bytecode {
                     unsigned char * first = malloc(byt->regis[op->p1].lenght) ; 
                     memcpy(first ,byt->regis[op->p1].val.s , byt->regis[op->p1].lenght ) ; 
                     int pos = 0 ;
-                    unsigned char thing = first; 
+                    unsigned char *thing = first; 
                     unsigned char temp = thing[pos] ;  
                     int key = op->p2 ; 
-                    reg * ans = byt->regis[op->p3] ; 
+                    reg * ans = &byt->regis[op->p3] ; 
                     for ( int i =  0 ; i < key ; i++ ){
                         temp = thing[pos] ; 
                         pos = pos + 1;  
                         if (temp == integer_num){
-                            pos = pos + sizeof(long) ; 
+                            pos = pos + sizeof(int) ; 
                         }
                         else if (temp == real_num){
                             pos = pos + sizeof(float ) ;   
@@ -2875,7 +2878,7 @@ bytecode {
                     int len = 0  ; 
                     pos = pos + 1 ; 
                     if (temp == integer_num){
-                        len =  sizeof(long) ; 
+                        len =  sizeof(int) ; 
                         ans->type = integer_num ; 
                     }
                     else if (temp == real_num){
@@ -2893,15 +2896,18 @@ bytecode {
                     unsigned char * valli = malloc(len ) ; 
                     memcpy(valli , thing + pos   , len ) ; 
                     if (ans->type == integer_num ){
-                        ans->val.i = (int)valli ;  
+                        memcpy(&ans->val.i, valli, sizeof(int)) ;
+                        free(valli) ; 
                     }
                     else if (ans->type == real_num ){
-                        ans->val.r = (float)valli ;     
+                        memcpy(&ans->val.r, valli, sizeof(float)) ; 
+                        free(valli) ;   
                     }
                     else {
-                        ans->val.s = valli ; 
+                        ans->val.s = valli ;     
                         ans->lenght = len ; 
                     }
+                    free(first) ; 
                     byt->btr[op->p1].null == false ; 
                     break ; 
                     

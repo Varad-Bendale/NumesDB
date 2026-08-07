@@ -1,18 +1,19 @@
- _   _                               _  _     
-| \ | |_   _ _ __ ___   ___  ___  __| || |__  
-|  \| | | | | '_ ` _ \ / _ \/ __|/ _` || '_ \ 
-| |\  | |_| | | | | | |  __/\__ \ (_| || |_) |
-|_| \_|\__,_|_| |_| |_|\___||___/\__,_||_.__/
+# Numes_db
+
+**A relational database engine, built from scratch in C.**
 
 ## Overview
-Numes_db is a relational database engine that reads and writes directly to a file on disk — the same approach SQLite uses — 
-built completely in C.
 
-Databases run the entire tech industry, yet almost no one knows how this wonderful piece of software actually works. This is that 
-black box, rebuilt in C, piece by piece.
+Numes_db is a relational database engine that reads and writes directly
+to a file on disk — the same approach SQLite uses — built completely in C.
 
+Databases run the entire tech industry, yet almost no one knows how this
+wonderful piece of software actually works. This is that black box,
+rebuilt in C, piece by piece.
 
-## Numes_db supports
+## Numes_db Supports
+
+```
 SELECT [columns | CASE ... END]
   │
   ├── FROM <table>
@@ -26,32 +27,36 @@ SELECT [columns | CASE ... END]
   ├── ORDER BY <columns> [ASC|DESC]
   │
   └── LIMIT <n>
+```
 
-## Architecture Overview  
+❌ No subqueries / nested SELECTs — every query is single-pass, no nesting.
+
+## Architecture Overview
+
+```
 +----------------------------------------------------------------------+
 |                          PREPROCESSING                               |
 |                                                                      |
 |   +---------------+        +----------------------+                  |
 |   |   Tokenizer   |  --->  |   Parser (-> AST)    |                  |
 |   +---------------+        +----------+-----------+                  |
-+---------------------------------------|------------------------------+
-                                        |
-                                        v
-+-----------------------------------------------------------------------+
-|                         EXECUTION ENGINE                              |
-|                                                                       |
-|      +----------------------+                                         |
-|      |  Bytecode Generator  |                                         |
-|      +-----------+----------+                                         |
-|                  |                                                    |
-|                  v                                                    |
-|      +----------------------+        +------------------------+       |
-|      |    Virtual Machine   | <----> |   WHERE Clause Engine  |       |
-|      +-----------+----------+        +------------------------+       |
-|                  |                                                    |
++---------------------------------------|--------------------------------+
+                                         v
++----------------------------------------------------------------------+
+|                         EXECUTION ENGINE                             |
+|                                                                      |
+|      +----------------------+                                        |
+|      |  Bytecode Generator  |                                        |
+|      +-----------+----------+                                        |
+|                  |                                                   |
+|                  v                                                   |
+|      +----------------------+        +------------------------+      |
+|      |    Virtual Machine   | <----> |   WHERE Clause Engine  |      |
+|      +-----------+----------+        +------------------------+      |
+|                  |                                                   |
 +------------------|----------------------------------------------------+
-                   | Read/Write rows
-                   v
+                    | Read/Write rows
+                    v
 +----------------------------------------------------------------------+
 |                          STORAGE ENGINE                              |
 |                                                                      |
@@ -59,46 +64,42 @@ SELECT [columns | CASE ... END]
 |   |     Pager     | <----> |    B-Tree     | <----> |  .db file |    |
 |   +---------------+        +---------------+        +-----------+    |
 +----------------------------------------------------------------------+
-
-
+```
 
 ## Repository Structure
+
+```
 Numes_db/
 ├── README.md                  # Project documentation
-├── sql.c                      # Entire code 
+├── sql.c                      # Entire code
 │
-├── Parser/                    
-│   ├── select_parser.c        # Tokenizing + parsing Select queries into AST
-│   └── Parser.txt             # Parser reference , design notes
+├── Parser/
+│   ├── select_parser.c        # Tokenizing + parsing SELECT queries into AST
+│   └── Parser.txt             # Parser reference, design notes
 │
-└── Engine/                 
-     ├── Engine.c               # Converting the queries to the bytecodes functions 
-     ├── bytecode.c             # All bytecode instruction definitions
-     └── engine.txt             # Opcode reference, VM design notes
-
-
+└── Engine/
+    ├── Engine.c               # Converts queries into bytecode
+    ├── bytecode.c             # All bytecode instruction definitions
+    └── engine.txt             # Opcode reference, VM design notes
+```
 
 ## Prerequisites
-gcc (or clang ) — C compiler
-A Linux environment (Linux/macOS) — file I/O assumes POSIX-style paths
 
+* `gcc` (or `clang`) — C compiler
+* A Linux/macOS environment — file I/O assumes POSIX-style paths
 
-## Status 
-Work in progress currently supports : 
-[X] Repl
-[X] Tokenizer
-[X] Select queries parser 
-[X] Bytecodes 
-[X] Compilation of ( Select , From , Where , Groupby + having , Orderby ) 
-[ ] Create queries parser 
-[ ] Compilation of ( Case , limit , Join ) 
-[ ] Where clause engine 
-[ ] Pager
-[ ] Btrees ( storage engine ) 
-  
+## Status
 
+ Work in progress. Currently supports:
 
-
-
-
+- [x] REPL
+- [x] Tokenizer
+- [x] SELECT query parser
+- [x] Bytecode generation
+- [x] Compilation of SELECT, FROM, WHERE, GROUP BY + HAVING, ORDER BY
+- [ ] CREATE query parser
+- [ ] Compilation of CASE, LIMIT, JOIN
+- [ ] WHERE clause engine
+- [ ] Pager
+- [ ] B-Tree (storage engine)
 

@@ -92,12 +92,18 @@ engine{
     }
     typedef struct select_ob_info{
         char *ob_name ; 
-        int dir ; 
+        char *extra_ob_name ; 
+        char *dir ; 
         extra_info_ob * ex ; 
         char * as  ; 
         char * operator ; 
         select_ob_info *left ; 
         select_ob_info * right ; 
+        float *float_val ; 
+        unsigned char * blob ; 
+        int * num_value ; 
+        char * char_value ; 
+        int acc_reg ; 
     }
 
     typedef struct select_info{
@@ -161,7 +167,7 @@ engine{
         return 3 ;
     }
 
-    select_select_info expre(select_select_info *ans ,    compiler *c , tree * temp){
+    select_select_info *expre(select_select_info *ans ,    compiler *c , tree * temp){
         int i = 0 ; 
         while (i < temp->num){
             if (strcmp(temp->children[i]->comp , "+")== 0 || strcmp(temp->children[i]->comp, "-")== 0 || strcmp(temp->children[i]->comp, "*")== 0 || strcmp(temp->children[i]->comp, "/")== 0 || strcmp(temp->children[i]->comp , "=")== 0 || strcmp(temp->children[i]->comp, "!=")== 0 || strcmp(temp->children[i]->comp , ">")== 0 || strcmp(temp->children[i]->comp , ">=")== 0 || strcmp(temp->children[i]->comp , "<")== 0 || strcmp(temp->children[i]->comp, "<=")== 0 || strcmp(temp->children[i]->comp , "GROUP_CONCAT")== 0 || strcmp(temp->children[i]->comp , "MAX") == 0 || strcmp(temp->children[i]->comp , "MIN") == 0 || strcmp(temp->children[i]->comp , "COUNT") == 0 || strcmp(temp->children[i]->comp, "AVG") == 0 || strcmp(temp->children[i]->comp , "SUM") == 0){
@@ -203,6 +209,48 @@ engine{
         return ans ; 
     }
 
+
+    select_ob_info *expre_order_by(select_ob_info *ans ,    compiler *c , tree * temp){
+        int i = 0 ; 
+        while (i < temp->num){
+            if (strcmp(temp->children[i]->comp , "+")== 0 || strcmp(temp->children[i]->comp, "-")== 0 || strcmp(temp->children[i]->comp, "*")== 0 || strcmp(temp->children[i]->comp, "/")== 0 || strcmp(temp->children[i]->comp , "=")== 0 || strcmp(temp->children[i]->comp, "!=")== 0 || strcmp(temp->children[i]->comp , ">")== 0 || strcmp(temp->children[i]->comp , ">=")== 0 || strcmp(temp->children[i]->comp , "<")== 0 || strcmp(temp->children[i]->comp, "<=")== 0 || strcmp(temp->children[i]->comp , "GROUP_CONCAT")== 0 || strcmp(temp->children[i]->comp , "MAX") == 0 || strcmp(temp->children[i]->comp , "MIN") == 0 || strcmp(temp->children[i]->comp , "COUNT") == 0 || strcmp(temp->children[i]->comp, "AVG") == 0 || strcmp(temp->children[i]->comp , "SUM") == 0){
+                   ans->operator = temp->children[i]->comp;
+                if (ans->left == NULL ){
+                    ans->left = malloc(sizeof(select_ob_info))
+                    expre_order_by(ans->left, c, temp->children[i]);
+                }
+                else {
+                    ans->right = malloc(sizeof(select_ob_info))
+                    expre_order_by(ans->right, c, temp->children[i]);
+                }
+            }
+            else if (col_name_to_int_main(temp->children[i]->comp, c->select) != -1 ){
+                if (ans->col_name != NULL ){
+                     ans->extra_ob_name = temp->children[i]->comp ;
+                }
+                else { 
+                    ans->ob_name = temp->children[i]->comp ;
+                 }
+             }
+            else { 
+                int check = data_type_check(temp->children[i]->comp);
+                if (check == 0){
+                    ans->num_value = atoi(temp->children[i]->comp);
+                }
+                else if (check == 1){
+                    ans->float_val = (float)atof(temp->children[i]->comp);
+                }
+                else if (check == 2){
+                    ans->blob = temp->children[i]->comp ;
+                }
+                else {
+                    ans->char_value = temp->children[i]->comp ;
+                }
+            }
+        i++;
+        }
+        return ans ; 
+    }
 
 
     void from_parser_to_struct(compiler * c  , tree * select ){
@@ -348,13 +396,61 @@ engine{
                 tree * orderby = c->select->children[i] ;  
                 select_ob_info *ob =  c->select->orderby ; 
                 int k = 0 ; 
-                for (  k < orderby->num ){
+                while (  k < orderby->num ){
                  if (c->select->groupby_counter > 0 ){
-
+                    if (orderby->children[k]->operator != NULL ){ 
+                            ob[c->select->orderby_counter] = malloc(sizeof(select_select_info));
+                            ob[c->select->orderby_counter]->ob_name = orderby->children[k] ; 
+                            ob[c->select->orderby_counter]->operator = NULL;
+                            ob[c->select->orderby_counter]->left = NULL;
+                            ob[c->select->orderby_counter]->right = NULL;
+                            if (orderby->children[k]->as != NULL) {
+                                ob[c->select->orderby_counter]->as = orderby->children[k]->as;
+                            }
+                            if ( orderby->direction[k] ){
+                                 ob[c->select->orderby_counter]->dir = orderby->direction[k] ;
+                            }
+                            if (orderby->children[k]->num > 0 ){
+                                select_ob_info *ob_child = orderby->children[k] ; 
+                                if (ob_child->num > 0 ){
+                                     ob_child->extra_info_ob->nulls = ob_child->children[0] ; 
+                                }
+                                if (ob_child->num > 1 ){
+                                     ob_child->extra_info_ob->order = ob_child->children[1] ; 
+                                }
+                                
+                            }
+                            c->select->orderby_counter++;
+                    }
+                    else { 
+                        // yeah please have a look in the parser i doubt the direction the nulls and the way is been even defined for the normal operations or the functions in this okay so yeah give a look and make it simple as that 
+                    }
                  }
                  else { 
-                    if (orderby->children[k]->operator != NULL ){
-                        ob->orderby[] // i kind of see an error in the groupby honestly in here like the the direct the data strucutre is taken i kind of have a feelling its wrong please do have a look in it later and yeah do it its quite easy 
+                    if (orderby->children[k]->operator != NULL ){ 
+                            ob[c->select->orderby_counter] = malloc(sizeof(select_select_info));
+                            ob[c->select->orderby_counter]->ob_name = orderby->children[k] ; 
+                            ob[c->select->orderby_counter]->operator = NULL;
+                            ob[c->select->orderby_counter]->left = NULL;
+                            ob[c->select->orderby_counter]->right = NULL;
+                            if (orderby->children[k]->as != NULL) {
+                                ob[c->select->orderby_counter]->as = orderby->children[k]->as;
+                            }
+                            if ( orderby->direction[k] ){
+                                 ob[c->select->orderby_counter]->dir = orderby->direction[k] ;
+                            }
+                            if (orderby->children[k]->num > 0 ){
+                                select_ob_info *ob_child = orderby->children[k] ; 
+                                if (ob_child->num > 0 ){
+                                     ob_child->extra_info_ob->nulls = ob_child->children[0] ; 
+                                }
+                                if (ob_child->num > 1 ){
+                                     ob_child->extra_info_ob->order = ob_child->children[1] ; 
+                                }
+                                
+                            }
+                            c->select->orderby_counter++;
+
                     }
                  }
                 }
@@ -369,8 +465,7 @@ engine{
                     while (k < groupby->num && strcmp(groupby->children[k]->comp , "HAVING") != 0  ){
                     if (strcmp(groupby->children[k]->comp, "+") == 0 || strcmp(groupby->children[k]->comp, "-") == 0 ||strcmp(groupby->children[k]->comp, "*") == 0 || strcmp(groupby->children[k]->comp, "/") == 0 || strcmp(groupby->children[k]->comp, "=") == 0 || strcmp(groupby->children[k]->comp, "!=") == 0 || strcmp(groupby->children[k]->comp, ">") == 0 || strcmp(groupby->children[k]->comp, ">=") == 0 || strcmp(groupby->children[k]->comp, "<") == 0 || strcmp(groupby->children[k]->comp, "<=") == 0 || strcmp(groupby->children[k]->comp, "GROUP_CONCAT") == 0 || strcmp(groupby->children[k]->comp, "MAX") == 0 || strcmp(groupby->children[k]->comp, "MIN") == 0 || strcmp(groupby->children[k]->comp, "COUNT") == 0 || strcmp(groupby->children[k]->comp, "AVG") == 0 || strcmp(groupby->children[k]->comp, "SUM") == 0) {
                         gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
-                        gb[c->select.groupby_counter] =
-                        expre(gb[c->select.groupby_counter], c, groupby->children[k]);
+                        gb[c->select.groupby_counter] = expre(gb[c->select.groupby_counter], c, groupby->children[k]);
                         if (select->as != NULL) {
                             gb[c->select.groupby_counter]->as = select->as;
                         }

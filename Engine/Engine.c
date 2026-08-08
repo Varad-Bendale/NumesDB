@@ -674,6 +674,7 @@ engine{
             emit(c, close_cursor_op , cursor, -1, -1, -1, NULL);
             emit(c, halt, -1, -1, -1, -1, NULL);
         }
+        // so where you need to start is na like make the new campare function for the orderby as per ythe nulls and the direction and stuff make it not that hard 
 
         else {
             int cursor_sort = c->sorter_cursor++ ; 

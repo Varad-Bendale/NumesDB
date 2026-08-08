@@ -410,20 +410,57 @@ engine{
                             if ( orderby->direction[k] ){
                                  ob[c->select->orderby_counter]->dir = orderby->direction[k] ;
                             }
-                            if (orderby->children[k]->num > 0 ){
-                                select_ob_info *ob_child = orderby->children[k] ; 
-                                if (ob_child->num > 0 ){
-                                     ob_child->extra_info_ob->nulls = ob_child->children[0] ; 
+                            if (k+ 1 < orderby->num ){
+                                if ( strcmp(orderby->children[k+1]->comp , "NULLS" ) == 0  ){
+                                    select_ob_info *ob_child = orderby->children[k] ; 
+                                    ob_child->extra_info_ob->nulls = malloc(sizeof(orderby->children[k+1]->comp)) ; 
+                                    memcpy(ob_child->extra_info_ob->nulls , orderby->children[k+1]->comp , sizeof(orderby->children[k+1]->comp) ) ; 
+                                    if (orderby->children[k+1]->num > 0 ){
+                                        ob_child->extra_info_ob->order = malloc(sizeof(orderby->children[k+1]->children[0]->comp)) ; 
+                                        memcpy(ob_child->extra_info_ob->order  , orderby->children[k+1]->children[0]->comp , sizeof(orderby->children[k+1]->children[0]->comp) ) ; 
+                                    }
+                                    else { 
+                                        ob_child->extra_info_ob->order = "FIRST"; 
+                                    }
+                                    k++ ; 
+                                    continue  ; 
                                 }
-                                if (ob_child->num > 1 ){
-                                     ob_child->extra_info_ob->order = ob_child->children[1] ; 
-                                }
-                                
                             }
+
                             c->select->orderby_counter++;
                     }
                     else { 
-                        // yeah please have a look in the parser i doubt the direction the nulls and the way is been even defined for the normal operations or the functions in this okay so yeah give a look and make it simple as that 
+                        if (strcmp(groupby->children[k]->comp, "+") == 0 || strcmp(groupby->children[k]->comp, "-") == 0 ||strcmp(groupby->children[k]->comp, "*") == 0 || strcmp(groupby->children[k]->comp, "/") == 0 || strcmp(groupby->children[k]->comp, "=") == 0 || strcmp(groupby->children[k]->comp, "!=") == 0 || strcmp(groupby->children[k]->comp, ">") == 0 || strcmp(groupby->children[k]->comp, ">=") == 0 || strcmp(groupby->children[k]->comp, "<") == 0 || strcmp(groupby->children[k]->comp, "<=") == 0 || strcmp(groupby->children[k]->comp, "GROUP_CONCAT") == 0 || strcmp(groupby->children[k]->comp, "MAX") == 0 || strcmp(groupby->children[k]->comp, "MIN") == 0 || strcmp(groupby->children[k]->comp, "COUNT") == 0 || strcmp(groupby->children[k]->comp, "AVG") == 0 || strcmp(groupby->children[k]->comp, "SUM") == 0) {
+                            ob[c->select->orderby_counter] = malloc(sizeof(select_select_info));
+                            ob[c->select->orderby_counter] = expre_order_by(ob[c->select->orderby_counter] , c , orderby->children[k] );
+                             ob[c->select->orderby_counter]->operator = NULL;
+                            ob[c->select->orderby_counter]->left = NULL;
+                            ob[c->select->orderby_counter]->right = NULL;
+                            if (orderby->children[k]->as != NULL) {
+                                ob[c->select->orderby_counter]->as = orderby->children[k]->as;
+                            }
+                            if ( orderby->direction[k] ){
+                                 ob[c->select->orderby_counter]->dir = orderby->direction[k] ;
+                            }
+                            if (k+ 1 < orderby->num ){
+                                if ( strcmp(orderby->children[k+1]->comp , "NULLS" ) == 0  ){
+                                    select_ob_info *ob_child = orderby->children[k] ; 
+                                    ob_child->extra_info_ob->nulls = malloc(sizeof(orderby->children[k+1]->comp)) ; 
+                                    memcpy(ob_child->extra_info_ob->nulls , orderby->children[k+1]->comp , sizeof(orderby->children[k+1]->comp) ) ; 
+                                    if (orderby->children[k+1]->num > 0 ){
+                                        ob_child->extra_info_ob->order = malloc(sizeof(orderby->children[k+1]->children[0]->comp)) ; 
+                                        memcpy(ob_child->extra_info_ob->order  , orderby->children[k+1]->children[0]->comp , sizeof(orderby->children[k+1]->children[0]->comp) ) ; 
+                                    }
+                                    else { 
+                                        ob_child->extra_info_ob->order = "FIRST"; 
+                                    }
+                                    k++ ; 
+                                    continue  ; 
+                                }
+                            }
+
+                            c->select->orderby_counter++;
+                        }
                     }
                  }
                  else { 
@@ -439,20 +476,26 @@ engine{
                             if ( orderby->direction[k] ){
                                  ob[c->select->orderby_counter]->dir = orderby->direction[k] ;
                             }
-                            if (orderby->children[k]->num > 0 ){
-                                select_ob_info *ob_child = orderby->children[k] ; 
-                                if (ob_child->num > 0 ){
-                                     ob_child->extra_info_ob->nulls = ob_child->children[0] ; 
+                            if (k+ 1 < orderby->num ){
+                                if ( strcmp(orderby->children[k+1]->comp , "NULLS" ) == 0  ){
+                                    select_ob_info *ob_child = orderby->children[k] ; 
+                                    ob_child->extra_info_ob->nulls = malloc(sizeof(orderby->children[k+1]->comp)) ; 
+                                    memcpy(ob_child->extra_info_ob->nulls , orderby->children[k+1]->comp , sizeof(orderby->children[k+1]->comp) ) ; 
+                                    if (orderby->children[k+1]->num > 0 ){
+                                        ob_child->extra_info_ob->order = malloc(sizeof(orderby->children[k+1]->children[0]->comp)) ; 
+                                        memcpy(ob_child->extra_info_ob->order  , orderby->children[k+1]->children[0]->comp , sizeof(orderby->children[k+1]->children[0]->comp) ) ; 
+                                    }
+                                    else { 
+                                        ob_child->extra_info_ob->order = "FIRST"; 
+                                    }
+                                    k++ ; 
+                                    continue  ; 
                                 }
-                                if (ob_child->num > 1 ){
-                                     ob_child->extra_info_ob->order = ob_child->children[1] ; 
-                                }
-                                
                             }
                             c->select->orderby_counter++;
-
                     }
                  }
+                 k++ ; 
                 }
             }
             else if (strcmp(select->children[i]->comp  , "CASE") == 0 ){
@@ -464,65 +507,62 @@ engine{
                 select_select_info *gb =  c->select->groupby ; 
                     while (k < groupby->num && strcmp(groupby->children[k]->comp , "HAVING") != 0  ){
                     if (strcmp(groupby->children[k]->comp, "+") == 0 || strcmp(groupby->children[k]->comp, "-") == 0 ||strcmp(groupby->children[k]->comp, "*") == 0 || strcmp(groupby->children[k]->comp, "/") == 0 || strcmp(groupby->children[k]->comp, "=") == 0 || strcmp(groupby->children[k]->comp, "!=") == 0 || strcmp(groupby->children[k]->comp, ">") == 0 || strcmp(groupby->children[k]->comp, ">=") == 0 || strcmp(groupby->children[k]->comp, "<") == 0 || strcmp(groupby->children[k]->comp, "<=") == 0 || strcmp(groupby->children[k]->comp, "GROUP_CONCAT") == 0 || strcmp(groupby->children[k]->comp, "MAX") == 0 || strcmp(groupby->children[k]->comp, "MIN") == 0 || strcmp(groupby->children[k]->comp, "COUNT") == 0 || strcmp(groupby->children[k]->comp, "AVG") == 0 || strcmp(groupby->children[k]->comp, "SUM") == 0) {
-                        gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
-                        gb[c->select.groupby_counter] = expre(gb[c->select.groupby_counter], c, groupby->children[k]);
+                        gb[c->select->groupby_counter] = malloc(sizeof(select_select_info));
+                        gb[c->select->groupby_counter] = expre(gb[c->select->groupby_counter] , c, groupby->children[k]);
                         if (select->as != NULL) {
-                            gb[c->select.groupby_counter]->as = select->as;
+                            gb[c->select->groupby_counter]->as = select->as;
                         }
                         c->select.groupby_counter++;
                     }
                     else {
                         if (col_name_to_int_main(groupby->children[k]->comp, c->select) != -1) {
-                            gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
-                            gb[c->select.groupby_counter]->col_name = groupby->children[k]->comp;
-                            gb[c->select.groupby_counter]->operator = NULL;
-                            gb[c->select.groupby_counter]->left = NULL;
-                            gb[c->select.groupby_counter]->right = NULL;
+                            gb[c->select->groupby_counter] = malloc(sizeof(select_select_info));
+                            gb[c->select->groupby_counter]->col_name = groupby->children[k]->comp;
+                            gb[c->select->groupby_counter]->operator = NULL;
+                            gb[c->select->groupby_counter]->left = NULL;
+                            gb[c->select->groupby_counter]->right = NULL;
                             if (select->as != NULL) {
-                                gb[c->select.groupby_counter]->as = select->as;
+                                gb[c->select->groupby_counter]->as = select->as;
                             }
-                            c->select.groupby_counter++;
+                            c->select->groupby_counter++;
                         }
                         else {
                             int check = data_type_check(groupby->children[k]->comp);
                             if (check == 0) {
-                                gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
-                                gb[c->select.groupby_counter]->col_name = NULL;
-                                gb[c->select.groupby_counter]->operator = NULL;
-                                gb[c->select.groupby_counter]->left = NULL;
-                                gb[c->select.groupby_counter]->right = NULL;
-                                gb[c->select.groupby_counter]->num_value = atoi(groupby->children[k]->comp);
-                                c->select.groupby_counter++;
+                                gb[c->select->groupby_counter]  = malloc(sizeof(select_select_info));
+                                gb[c->select->groupby_counter]->col_name = NULL;
+                                gb[c->select->groupby_counter]->operator = NULL;
+                                gb[c->select->groupby_counter]->left = NULL;
+                                gb[c->select->groupby_counter]->right = NULL;
+                                gb[c->select->groupby_counter]->num_value = atoi(groupby->children[k]->comp);
+                                c->select->groupby_counter++;
                             }
                             else if (check == 1) {
-
-                                gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
-                                gb[c->select.groupby_counter]->col_name = NULL;
-                                gb[c->select.groupby_counter]->operator = NULL;
-                                gb[c->select.groupby_counter]->left = NULL;
-                                gb[c->select.groupby_counter]->right = NULL;
-                                gb[c->select.groupby_counter]->float_val = (float)atof(groupby->children[k]->comp);
-                                c->select.groupby_counter++;
+                                gb[c->select->groupby_counter]  = malloc(sizeof(select_select_info));
+                                gb[c->select->groupby_counter]->col_name = NULL;
+                                gb[c->select->groupby_counter]->operator = NULL;
+                                gb[c->select->groupby_counter]->left = NULL;
+                                gb[c->select->groupby_counter]->right = NULL;
+                                gb[c->select->groupby_counter]->float_val = (float)atof(groupby->children[k]->comp);
+                                c->select->groupby_counter++;
                             }
                             else if (check == 2) {
-
-                                gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
-                                gb[c->select.groupby_counter]->col_name = NULL;
-                                gb[c->select.groupby_counter]->operator = NULL;
-                                gb[c->select.groupby_counter]->left = NULL;
-                                gb[c->select.groupby_counter]->right = NULL;
-                                gb[c->select.groupby_counter]->blob =  groupby->children[k]->comp;
-                                c->select.groupby_counter++;
+                                gb[c->select->groupby_counter]  = malloc(sizeof(select_select_info));
+                                gb[c->select->groupby_counter]->col_name = NULL;
+                                gb[c->select->groupby_counter]->operator = NULL;
+                                gb[c->select->groupby_counter]->left = NULL;
+                                gb[c->select->groupby_counter]->right = NULL;
+                                gb[c->select->groupby_counter]->blob =  groupby->children[k]->comp;
+                                c->select->groupby_counter++;
                             }
                             else {
-
-                                gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
-                                gb[c->select.groupby_counter]->col_name = NULL;
-                                gb[c->select.groupby_counter]->operator = NULL;
-                                gb[c->select.groupby_counter]->left = NULL;
-                                gb[c->select.groupby_counter]->right = NULL;
-                                gb[c->select.groupby_counter]->char_value = groupby->children[k]->comp;
-                                c->select.groupby_counter++;
+                                gb[c->select->groupby_counter]  = malloc(sizeof(select_select_info));
+                                gb[c->select->groupby_counter]->col_name = NULL;
+                                gb[c->select->groupby_counter]->operator = NULL;
+                                gb[c->select->groupby_counter]->left = NULL;
+                                gb[c->select->groupby_counter]->right = NULL;
+                                gb[c->select->groupby_counter]->char_value = groupby->children[k]->comp;
+                                c->select->groupby_counter++;
                             }
                         }
                     }

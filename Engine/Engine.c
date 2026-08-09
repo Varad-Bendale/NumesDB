@@ -626,23 +626,92 @@ engine{
         int  reg_num ; 
         int  direction ; 
         int  nullsfirst ; 
-        int  nullslast 
+        int  nullslast  ; 
+    }
+    unsigned char *  sorter_orderby_init(compiler * c ){
+        orderby_key_cols * ob[300] ; 
+        int ob_counter = 0 ; 
+        int col = 0 ;
+        for ( int i = 0 ; i < c->select->orderby_counter ; i++ ){
+            if (c->select->orderby[i]->operator != NULL ){
+                if (1){
+                    if (col == 0 ){
+                        col = c->select->col_counter++ ; 
+                    }
+                    else {
+                        col = col + 1 ; 
+                    }
+                }
+                ob[ob_counter]->reg_num = col ; 
+                if (1){
+                    if (strcmp(c->select->orderby[i]->dir , "ASC") == 0 ){
+                        ob[ob_counter]->direction = 0 ; 
+                    }
+                    else { 
+                        ob[ob_counter]->direction = 1 ; 
+                    }
+                 }
+                if (c->select->orderby[i]->ex != NULL){
+                    if (strcmp(c->select->orderby[i]->ex->order , "LAST") == 0 ){
+                        ob[ob_counter]->nullslast = 1 ; 
+                        ob[ob_counter]->nullsfirst = 0 ; 
+                    }
+                    else { 
+                        ob[ob_counter]->nullsfirst = 1 ; 
+                        ob[ob_counter]->nullslast = 0 ; 
+                    }
+                }
+                ob_counter++ ; 
+            }   
+            else { 
+                ob[ob_counter]->reg_num = col_name_to_int_main( c->select->orderby[1]->ob_name , c->select ) ; 
+                if (1){
+                    if (strcmp(c->select->orderby[i]->dir , "ASC") == 0 ){
+                        ob[ob_counter]->direction = 0 ; 
+                    }
+                    else { 
+                        ob[ob_counter]->direction = 1 ; 
+                    }
+                 }
+                if (c->select->orderby[i]->ex != NULL){
+                    if (strcmp(c->select->orderby[i]->ex->order , "LAST") == 0 ){
+                        ob[ob_counter]->nullslast = 1 ; 
+                        ob[ob_counter]->nullsfirst = 0 ; 
+                    }
+                    else { 
+                        ob[ob_counter]->nullsfirst = 1 ; 
+                        ob[ob_counter]->nullslast = 0 ; 
+                    }
+                }
+                ob_counter++ ; 
+            }
+        }
+        int struct_size = sizeof(orderby_key_cols);   
+        int total_size = struct_size * ob_counter;
+        unsigned char *buffer = malloc(total_size);
+        int offset = 0;
+        for (int i = 0; i < ob_counter ; i++) {
+            memcpy(buffer + offset, ob[i], struct_size);
+            offset += struct_size;
+        }
+        return buffer ; 
     }
 
     void compile_select (compiler *c ){
         emit(c , begin_op  , -1 , -1 , -1 , NULL ) ; 
         int cursor = c->cursor_num++ ; 
+        int cursor_for_sort_orderby  = 0 ; 
         emit(c , open_read_op , cursor , sql_master->page_num ,  -1 , -1 , NULL    ) ; 
         emit(c , rewind_cursor , cursor , -1 , -1 , -1 , NULL  ) ; 
         int register_num = c->register_counter++ ; 
         c->register_start = register_num ; 
-        int loop_addr = c->count ; 
-        emit(c , eq_op , where_func(c ,c->select->where ) , -1  , MAX , "BINARY" ) ; 
         if (c->select->groupby_counter == 0 ){
             if (c->select->orderby_counter > 0 ){
-                int cursor_for_sort_orderby = c->sorter_cursor++ ; 
-                emit(c , sorter_open , cursor_for_sort_orderby , c->select->orderby_counter , -1 , NULL ) ; 
+                 cursor_for_sort_orderby = c->sorter_cursor++ ; 
+                emit(c , sorter_open , cursor_for_sort_orderby , c->select->orderby_counter , -1 , sorter_orderby_init(c)  ) ; 
             }
+            int loop_addr = c->count ; 
+            emit(c , eq_op , where_func(c ,c->select->where ) , -1  , MAX , "BINARY" ) ; 
             for ( int i = 0 ; i < c->select->col_counter ; i++  ){
                 int num = col_name_to_int_main( c->select->sel[i]->col_name , c->select   ) ; 
                     if (c->select->sel[i]->operator == NULL ){
@@ -677,13 +746,18 @@ engine{
                         }
                     }
             }
-            for ( int l = 0 ; l < c->select->orderby_counter ; l++  ){
-                if (c->select->orderby[l]->operator != NULL){
-
+            if (c->select->orderby_counter > 0 ){
+                int extra_depletion_record = 0 ; 
+                for ( int l = 0 ; l < c->select->orderby_counter ; l++  ){
+                    if (c->select->orderby[l]->operator != NULL){
+                        c->register_counter = orderby_func_main(c , c->select->orderby[l] , false ) ; 
+                        c->register_counter++ ; 
+                        extra_depletion_record++ ; 
+                    }
                 }
-                else { 
-
-                }
+                emit(c , make_record , c->register_start , c->register_counter , c->select->register_counter + 1 , NULL ) ; 
+                 emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
+                c->register_counter = c->register_counter - extra_depletion_record ; 
             }
             emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
             c->typ[loop_addr].p2 = c->count ; 
@@ -694,6 +768,8 @@ engine{
         // so where you need to start is na like make the new campare function for the orderby as per ythe nulls and the direction and stuff make it not that hard 
 
         else {
+            int loop_addr = c->count ; 
+            emit(c , eq_op , where_func(c ,c->select->where ) , -1  , MAX , "BINARY" ) ; 
             int cursor_sort = c->sorter_cursor++ ; 
             emit(c , sorter_open , cursor_sort,c->select->groupby_counter , -1 , { col_name_to_int_main(c->select->groupby[sel_uni_counter]->col_name   , c->select)} ) ; 
 
@@ -806,6 +882,9 @@ engine{
             }
             emit(c , eq_op , having , -1 ,  MAX , NULL  ) ; 
             int gb_hav_fin = c->count ; 
+            if (c->select->orderby_counter > 0 ){
+                emit(c , sorter_sort , cursor_for_sort_orderby , -1 , -1 , NULL  ) ; 
+            }
             emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
             c->typ[gb_hav_fin].p2 = c->count ; 
             emit(c, close_cursor_op , cursor, -1, -1, -1, NULL) ;
@@ -1004,6 +1083,13 @@ engine{
     }
 
     int normal_func(compiler *c , select_select_info * node ){
+        int first_reg = c->register_counter ; 
+        int ans = func(c , node) ; 
+        c->register_counter = first_reg ; 
+        return ans ;  
+    }
+
+    int orderby_func_main(compiler *c , select_ob_info * node ){
         int first_reg = c->register_counter ; 
         int ans = func(c , node) ; 
         c->register_counter = first_reg ; 
@@ -1530,3 +1616,258 @@ engine{
 
 
 
+    int  orderby_func(compiler *c , select_ob_info * node , bool final  ){
+        int reg  = c->register_counter   ; 
+        int operator ; 
+        if (node->operator != NULL  ) {
+            if (strcmp(node->operator , "+")== 0 ){
+                operator = add_op ; 
+            }
+            else if (strcmp(node->operator , "-")== 0 ){
+                operator = subs_op ; 
+            }
+            else if  (strcmp(node->operator , "*")== 0 ){
+                operator = mul_op ; 
+            }   
+            else if  (strcmp(node->operator , "/")== 0 ){
+                operator = divide_op ; 
+            }
+            else if  (strcmp(node->operator , "=")== 0 ){
+                operator = eq_select_op ; 
+            }
+            else if  (strcmp(node->operator , "!=")== 0 ){
+                 operator = ne_select_op ; 
+            }
+            else if (strcmp(node->operator , ">")== 0 ){
+                 operator = gt_select_op ; 
+            }
+            else if  (strcmp(node->operator , ">=")== 0 ){
+                    operator = ge_select_op ; 
+            }
+            else if  (strcmp(node->operator , "<")== 0 ){
+                 operator = lt_select_op ; 
+            }
+            else if (strcmp(node->operator , "<=")== 0 ){
+                 operator = le_select_op ; 
+            }
+            else if (strcmp(node->operator , "AND")== 0 ){
+                 operator = and_op ; 
+            }
+            else if (strcmp(node->operator , "OR")== 0 ){
+                 operator = or_op ; 
+            }
+            else if (strcmp(node->operator , "IS NULL")== 0 ){
+                 operator = is_null ; 
+            }
+            else if(strcmp(node->operator , "IS NOT NULL")== 0 ){
+                 operator = is_not_null ; 
+            }
+            else if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
+                if (node->acc_reg == -1 ){
+                    node->acc_reg = c->register_counter++   ; 
+                    emit(c ,aggregate_init ,node->acc_reg , -1 , -1 , NULL  ) ; 
+                }
+                aggregate_select(c , node ) ; 
+                if (final == true ){
+                    emit(c ,aggregate_final ,node->acc_reg , -1 , node->acc_reg  , NULL  ) ; 
+                    emit(c ,aggregate_reset , node->acc_reg  , -1 , -1 , NULL ) ; 
+                }
+            }
+            else { 
+                return reg  ; 
+            }
+            int num = col_name_to_int_main( node->col_name , c->select   ) ; 
+            int cursor = c->cursor_num ; 
+
+
+            if (node->right == NULL && node->left == NULL  ){
+                if (operator != is_null  && operator != is_not_null ){
+                    int reg_left = c->register_counter++ ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_left , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_left , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_left , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_left , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+
+                    int reg_right =  c->register_counter++ ;    
+                    if (1){
+                        if (node->extra_col != NULL ){
+                            int extra_num = col_name_to_int_main( node->extra_col , c->select   ) ; 
+                            emit(c , column_op ,cursor , extra_num , reg_right  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_right , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_right , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_right , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_right , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_left ,reg_right , reg , -1 , NULL ) ;    
+            }
+            else {
+                int reg_temp = c->register_counter++  ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_temp , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_temp , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_temp , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_temp , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_temp ,-1 , reg , -1 , NULL ) ;    
+
+            }               
+            }
+
+
+            else if (node->right != NULL && node->left == NULL ) {
+            if (operator != is_null  && operator != is_not_null ){
+                int reg_right = func(c , node->right ,final  ) ; 
+                int reg_left =  c->register_counter++ ;  
+                        if (1){
+                            if (node->col_name != NULL ){
+                                emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
+                            }
+                            else {
+                                if (node->num_value != NULL ){
+                                    emit(c , integer_op , *node->num_value , reg_left , NULL  , NULL  ) ;   
+                                }
+                                else if (node->char_value != NULL ){
+                                    emit(c , string_op ,-1 , reg_left , -1  , (void*)node->char_value   ) ;   
+                                }
+                                else if (node->float_val != NULL ){
+                                    emit(c , real_op , -1, reg_left , N-1ULL  , (void*)node->float_val   ) ;   
+                                }
+                                else if (node->blob != NULL ){p
+                                    emit(c , blob_op ,-1 , reg_left , -1  , (void*)node->blob   ) ;   
+                                }
+                            }
+                        }
+                reg = c->register_counter++  ; 
+                emit(c , operator ,reg_left, reg_right , reg , -1 , NULL ) ;   
+            }
+            else  {
+                    int reg_temp = orderby_func(c , node->right ,final ) ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , column_op ,cursor , num , reg_temp  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_temp , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_temp , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_temp , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_temp , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_temp ,-1 , reg , -1 , NULL ) ;    
+
+            }    
+
+            }
+
+            else if(node->left != NULL && node->right == NULL ){
+            if (operator != is_null  && operator != is_not_null ){
+                int reg_left = orderby_func(c , node->left,final  ) ; 
+                int reg_right =  c->register_counter++ ;  
+                        if (1){
+                            if (node->col_name != NULL ){
+                                emit(c , column_op ,cursor , num , reg_right  , NULL  ) ;  
+                            }
+                            else {
+                                if (node->num_value != NULL ){
+                                    emit(c , integer_op , *node->num_value , reg_right , -1  , NULL  ) ;   
+                                }
+                                else if (node->char_value != NULL ){
+                                    emit(c , string_op ,-1 , reg_right , -1  , (void*)node->char_value   ) ;   
+                                }
+                                else if (node->float_val != NULL ){
+                                    emit(c , real_op , -1, reg_right , -1  , (void*)node->float_val   ) ;   
+                                }
+                                else if (node->blob != NULL ){
+                                    emit(c , blob_op ,-1 , reg_right , -1  , (void*)node->blob   ) ;   
+                                }
+                            }
+                        }
+                reg = c->register_counter++  ; 
+                emit(c , operator ,reg_left , reg_right  , reg , -1 , NULL ) ;  
+            }
+            else  {
+                    int reg_temp = orderby_func(c , node->left ,final ) ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , column_op ,cursor , num , reg_temp  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_temp , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_temp , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_temp , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_temp , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_temp ,-1 , reg , -1 , NULL ) ;    
+
+            }
+           }
+            else { 
+                int reg_right = orderby_func(c , node->right ,final  ) ; 
+                int reg_left = orderby_func(c , node->left,final  ) ; 
+                reg = c->register_counter++  ; 
+                emit(c , operator ,reg_left , reg_right , reg , -1 , NULL ) ;  
+            }
+        }
+
+        return reg ; 
+    }

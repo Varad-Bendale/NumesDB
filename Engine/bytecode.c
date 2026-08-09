@@ -2772,7 +2772,7 @@ bytecode {
                             sort_arr *tmp = realloc( byt->sort[op->p1].array, byt->sort[op->p1].capacity * sizeof(*byt->sort[op->p1].array)   );
                             if (tmp == NULL) { 
                                 break; 
-                            }
+                            }/
                             byt->sort[op->p1].array = tmp;
                         }
                         sort_arr * temp  = malloc(sizeof(sort_arr)) ; 

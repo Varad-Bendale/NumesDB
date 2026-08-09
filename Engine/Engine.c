@@ -591,7 +591,6 @@ engine{
     }
 
 
-    // the funtion below is wrong the entire of the structure is changed need to do it cool 
 
     int col_name_to_int_main( char * column_name , select_info *sf  ){
         int num = -1 ; 
@@ -623,7 +622,12 @@ engine{
         return NULL ; 
     }
 
-
+    typedef struct orderby_key_cols{
+        int  reg_num ; 
+        int  direction ; 
+        int  nullsfirst ; 
+        int  nullslast 
+    }
 
     void compile_select (compiler *c ){
         emit(c , begin_op  , -1 , -1 , -1 , NULL ) ; 
@@ -635,6 +639,10 @@ engine{
         int loop_addr = c->count ; 
         emit(c , eq_op , where_func(c ,c->select->where ) , -1  , MAX , "BINARY" ) ; 
         if (c->select->groupby_counter == 0 ){
+            if (c->select->orderby_counter > 0 ){
+                int cursor_for_sort_orderby = c->sorter_cursor++ ; 
+                emit(c , sorter_open , cursor_for_sort_orderby , c->select->orderby_counter , -1 , NULL ) ; 
+            }
             for ( int i = 0 ; i < c->select->col_counter ; i++  ){
                 int num = col_name_to_int_main( c->select->sel[i]->col_name , c->select   ) ; 
                     if (c->select->sel[i]->operator == NULL ){
@@ -664,9 +672,18 @@ engine{
                     }
                     else { 
                         if ( num != -1 ){
-                             int not_needed =  func(c ,c->select->sel[i] ) ; 
+                            c->register_counter = normal_func(c ,c->select->sel[i]  ) ; 
+                            c->register_counter++ ; 
                         }
                     }
+            }
+            for ( int l = 0 ; l < c->select->orderby_counter ; l++  ){
+                if (c->select->orderby[l]->operator != NULL){
+
+                }
+                else { 
+
+                }
             }
             emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
             c->typ[loop_addr].p2 = c->count ; 
@@ -679,6 +696,7 @@ engine{
         else {
             int cursor_sort = c->sorter_cursor++ ; 
             emit(c , sorter_open , cursor_sort,c->select->groupby_counter , -1 , { col_name_to_int_main(c->select->groupby[sel_uni_counter]->col_name   , c->select)} ) ; 
+
             get_all_select_stuff(c) ; 
             get_all_hash_covered_gb(c) ; 
             int loop_addr_gb = c->count ; 
@@ -938,7 +956,8 @@ engine{
                 if (c->select->groupby[i]->operator != NULL ){
                     int temp = c->register_counter ; 
                     c->register_counter = cur ; 
-                    int node =  func(c ,c->select->groupby[i]  ) ;
+                    c->register_counter = normal_func(c ,c->select->sel[i]  ) ; 
+                    c->register_counter++ ; 
                     c->register_counter = temp ; 
                 }
                 else { 
@@ -964,8 +983,10 @@ engine{
             reg = c->register_counter++;
             emit(c, column_op, cursor, num, reg, NULL);
         }
-        else if (node->left != NULL) {             
-            reg = func(c, node->left, cursor);
+        else if (node->left != NULL) {      
+            c->register_counter = normal_func(c ,c->select->sel[i]  ) ; 
+            c->register_counter++ ;        
+           reg = func(c, node->left, cursor);
         }
         else {                         
             reg = -1;
@@ -982,8 +1003,14 @@ engine{
         return ans ;  
     }
 
+    int normal_func(compiler *c , select_select_info * node ){
+        int first_reg = c->register_counter ; 
+        int ans = func(c , node) ; 
+        c->register_counter = first_reg ; 
+        return ans ;  
+    }
 
-
+// bug alert the func needs a new attribute known as final check it out i think its quite broken so yeah 
     int  func(compiler *c , select_select_info * node , bool final  ){
         int reg  = c->register_counter   ; 
         int operator ; 

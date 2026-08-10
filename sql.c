@@ -627,36 +627,36 @@ engine{
         int  direction ; 
         int  nullsfirst ; 
         int  nullslast  ; 
-    }
+    }orderby_key_cols;
+
+
     unsigned char *  sorter_orderby_init(compiler * c  , int groupby ){
         orderby_key_cols * ob[300] ; 
         int ob_counter = 0 ; 
         int col = 0 ;
         for ( int i = 0 ; i < c->select->orderby_counter ; i++ ){
             if (c->select->orderby[i]->operator != NULL ){
-                if (1){
-                    if (col == 0 ){
-                        if (groupby == 0 ){
-                            col = c->select->col_counter++ ; 
-                        }
-                        else { 
-                            col = c->select->sel_uni_counter++ ; 
-                        }
-
-                    }
-                    else {
-                        col = col + 1 ; 
-                    }
-                }
-                ob[ob_counter]->reg_num = col ; 
-                if (1){
-                    if (strcmp(c->select->orderby[i]->dir , "ASC") == 0 ){
-                        ob[ob_counter]->direction = 0 ; 
+                ob[i] = malloc(sizeof(orderby_key_cols));
+                if (col == 0 ){
+                    if (groupby == 0 ){
+                        col = c->select->col_counter++ ; 
                     }
                     else { 
-                        ob[ob_counter]->direction = 1 ; 
+                        col = c->select->sel_uni_counter++ ; 
                     }
-                 }
+
+                }
+                else if (col != 0 ) {
+                    col = col + 1 ; 
+                }
+
+                ob[ob_counter]->reg_num = col ; 
+                if (strcmp(c->select->orderby[i]->dir , "ASC") == 0 ){
+                    ob[ob_counter]->direction = 0 ; 
+                }
+                else if (strcmp(c->select->orderby[i]->dir , "DSC") == 0 ) { 
+                    ob[ob_counter]->direction = 1 ; 
+                }
                 if (c->select->orderby[i]->ex != NULL){
                     if (strcmp(c->select->orderby[i]->ex->order , "LAST") == 0 ){
                         ob[ob_counter]->nullslast = 1 ; 
@@ -667,18 +667,38 @@ engine{
                         ob[ob_counter]->nullslast = 0 ; 
                     }
                 }
-                ob_counter++ ; 
+                else if (c->select->orderby[i]->ex == NULL ){
+                        ob[ob_counter]->nullsfirst = 0 ; 
+                        ob[ob_counter]->nullslast = 0 ; 
+                }
+                if (ob_counter < 300 ){
+                    ob_counter++ ; 
+                }
+
             }   
             else { 
-                ob[ob_counter]->reg_num = col_name_to_int_main( c->select->orderby[1]->ob_name , c->select ) ; 
-                if (1){
-                    if (strcmp(c->select->orderby[i]->dir , "ASC") == 0 ){
-                        ob[ob_counter]->direction = 0 ; 
+                ob[i] = malloc(sizeof(orderby_key_cols));
+                ob[ob_counter]->reg_num = col_name_to_int_main( c->select->orderby[i]->ob_name , c->select ) ; 
+                if (col == 0 ){
+                    if (groupby == 0 ){
+                        col = c->select->col_counter++ ; 
                     }
                     else { 
-                        ob[ob_counter]->direction = 1 ; 
+                        col = c->select->sel_uni_counter++ ; 
                     }
-                 }
+
+                }
+                else if (col != 0 ) {
+                    col = col + 1 ; 
+                }
+
+                ob[ob_counter]->reg_num = col ; 
+                if (strcmp(c->select->orderby[i]->dir , "ASC") == 0 ){
+                    ob[ob_counter]->direction = 0 ; 
+                }
+                else if (strcmp(c->select->orderby[i]->dir , "DSC") == 0 ) { 
+                    ob[ob_counter]->direction = 1 ; 
+                }
                 if (c->select->orderby[i]->ex != NULL){
                     if (strcmp(c->select->orderby[i]->ex->order , "LAST") == 0 ){
                         ob[ob_counter]->nullslast = 1 ; 
@@ -689,7 +709,14 @@ engine{
                         ob[ob_counter]->nullslast = 0 ; 
                     }
                 }
-                ob_counter++ ; 
+                else if (c->select->orderby[i]->ex == NULL ){
+                        ob[ob_counter]->nullsfirst = 0 ; 
+                        ob[ob_counter]->nullslast = 0 ; 
+                }
+                if (ob_counter < 300 ){
+                    ob_counter++ ; 
+                }
+
             }
         }
         int struct_size = sizeof(orderby_key_cols);   
@@ -761,15 +788,22 @@ engine{
                         extra_depletion_record++ ; 
                     }
                 }
-                emit(c , make_record , c->register_start , c->register_counter , c->select->register_counter + 1 , NULL ) ; 
-                emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
+                emit(c , make_record , c->register_start , c->register_counter , c->register_counter + 1 , NULL ) ; 
+                emit(c , sorter_insert , cursor_for_sort_orderby ,  c->register_counter + 1  , -1  , NULL) ; 
                 c->register_counter = c->register_counter - extra_depletion_record ; 
             }
-            emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
+            if (c->select->orderby_counter == 0 ){
+                emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
+            }
             c->typ[loop_addr].p2 = c->count ; 
             emit(c , next_cursor , cursor , loop_addr   , -1 , NULL ) ;
             if (c->select->orderby_counter > 0 ) {
-                emit(c , )
+                emit(c , orderby_sort , cursor_for_sort_orderby , -1 , -1 , NULL ) ; 
+                int orderby_sort_addr = c->count ; 
+                int start_orderby_reg_counter = c->register_counter++ ; 
+                emit(c , sorter_data , cursor_for_sort_orderby , c->register_counter , -1 , NULL ) ; 
+                emit(c , result_row , start_orderby_reg_counter , start_orderby_reg_counter+1 , -1  , -1 , NULL ) ; 
+                emit(c , sorter_next , cursor_for_sort_orderby , orderby_sort_addr , -1 , NULL ) ; 
             }
             emit(c, close_cursor_op , cursor, -1, -1, -1, NULL);
             emit(c, halt, -1, -1, -1, -1, NULL);
@@ -851,8 +885,8 @@ engine{
                             extra_depletion_record++ ; 
                         }
                     }
-                    emit(c , make_record , c->register_start , c->register_counter , c->select->register_counter + 1 , NULL ) ; 
-                    emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
+                    emit(c , make_record , c->register_start , c->register_counter , c->register_counter + 1 , NULL ) ; 
+                    emit(c , sorter_insert , cursor_for_sort_orderby ,  c->register_counter + 1  , -1  , NULL) ; 
                     c->register_counter = c->register_counter - extra_depletion_record ; 
                 }
                 emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
@@ -909,9 +943,6 @@ engine{
             emit(c , eq_op , having , -1 ,  MAX , NULL  ) ; 
             int gb_hav_fin = c->count ; 
             if (c->select->orderby_counter > 0 ){
-                emit(c , sorter_sort , cursor_for_sort_orderby , -1 , -1 , NULL  ) ; 
-            }
-            if (c->select->orderby_counter > 0 ){
                 int extra_depletion_record = 0 ; 
                 for ( int l = 0 ; l < c->select->orderby_counter ; l++  ){
                     if (c->select->orderby[l]->operator != NULL){
@@ -920,16 +951,29 @@ engine{
                         extra_depletion_record++ ; 
                     }
                 }
-                emit(c , make_record , c->register_start , c->register_counter , c->select->register_counter + 1 , NULL ) ; 
-                 emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
+                emit(c , make_record , c->register_start , c->register_counter , c->register_counter + 1 , NULL ) ; 
+                 emit(c , sorter_insert , cursor_for_sort_orderby ,  c->register_counter + 1  , -1  , NULL) ; 
                 c->register_counter = c->register_counter - extra_depletion_record ; 
             }
-            emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
+            if (c->select->orderby_counter > 0 ) {
+                emit(c , orderby_sort , cursor_for_sort_orderby , -1 , -1 , NULL ) ; 
+            }
+            if (c->select->orderby_counter == 0 ){
+                emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
+            }
             c->typ[gb_hav_fin].p2 = c->count ; 
+            if (c->select->orderby_counter > 0 ) {
+                emit(c , orderby_sort , cursor_for_sort_orderby , -1 , -1 , NULL ) ; 
+                int orderby_sort_addr = c->count ; 
+                int start_orderby_reg_counter = c->register_counter++ ; 
+                emit(c , sorter_data , cursor_for_sort_orderby , c->register_counter , -1 , NULL ) ; 
+                emit(c , result_row , start_orderby_reg_counter , start_orderby_reg_counter+1 , -1  , -1 , NULL ) ; 
+                emit(c , sorter_next , cursor_for_sort_orderby , orderby_sort_addr , -1 , NULL ) ; 
+            }
             emit(c, close_cursor_op , cursor, -1, -1, -1, NULL) ;
             emit(c, halt, -1, -1, -1, -1, NULL) ;
          }
-
+        
     }
 
     // one more boring stuff simply see liek here in the where na we have to check wheter the thing we have is 0 or 1 true or false if it is false you need to do the next command execute so for that one once you do the next command so now the thing is na we have the eq_op bytecode for the thing which like checks if the thing is  true or flase  then it like jumps to the next part the issue we dont know where the next_op thing will come in the execution so we simply put it as -1 and then we just updat ething thing when we find it simple as that 
@@ -1150,7 +1194,7 @@ engine{
 
     int orderby_func_main(compiler *c , select_ob_info * node ){
         int first_reg = c->register_counter ; 
-        int ans = func(c , node) ; 
+        int ans = orderby_func(c , node) ; 
         c->register_counter = first_reg ; 
         return ans ;  
     }
@@ -1411,9 +1455,6 @@ engine{
 
         return reg ; 
     }
-
-
-
     int  group_by_func(compiler *c , select_select_info * node  , bool final ){
         int reg = c->register_counter    ; 
         int operator ; 
@@ -1665,15 +1706,9 @@ engine{
             reg = c->register_counter++  ; 
             emit(c , operator ,reg_left , reg_right , reg , -1 , NULL ) ;  
         }
-    }
+        }
         return reg ; 
     }
-
-
-
-
-
-
 
     int  orderby_func(compiler *c , select_ob_info * node , bool final  ){
         int reg  = c->register_counter   ; 
@@ -1735,7 +1770,7 @@ engine{
             else { 
                 return reg  ; 
             }
-            int num = col_name_to_int_main( node->col_name , c->select   ) ; 
+            int num = col_name_to_int_main( node->ob_name , c->select   ) ; 
             int cursor = c->cursor_num ; 
 
 
@@ -1743,7 +1778,7 @@ engine{
                 if (operator != is_null  && operator != is_not_null ){
                     int reg_left = c->register_counter++ ; 
                     if (1){
-                        if (node->col_name != NULL ){
+                        if (node->ob_name != NULL ){
                             emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
                         }
                         else {
@@ -1764,8 +1799,8 @@ engine{
 
                     int reg_right =  c->register_counter++ ;    
                     if (1){
-                        if (node->extra_col != NULL ){
-                            int extra_num = col_name_to_int_main( node->extra_col , c->select   ) ; 
+                        if (node->extra_ob_name != NULL ){
+                            int extra_num = col_name_to_int_main( node->extra_ob_name , c->select   ) ; 
                             emit(c , column_op ,cursor , extra_num , reg_right  , NULL  ) ;  
                         }
                         else {
@@ -1789,7 +1824,7 @@ engine{
             else {
                 int reg_temp = c->register_counter++  ; 
                     if (1){
-                        if (node->col_name != NULL ){
+                        if (node->ob_name != NULL ){
                             emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
                         }
                         else {
@@ -1819,7 +1854,7 @@ engine{
                 int reg_right = func(c , node->right ,final  ) ; 
                 int reg_left =  c->register_counter++ ;  
                         if (1){
-                            if (node->col_name != NULL ){
+                            if (node->ob_name != NULL ){
                                 emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
                             }
                             else {
@@ -1843,7 +1878,7 @@ engine{
             else  {
                     int reg_temp = orderby_func(c , node->right ,final ) ; 
                     if (1){
-                        if (node->col_name != NULL ){
+                        if (node->ob_name != NULL ){
                             emit(c , column_op ,cursor , num , reg_temp  , NULL  ) ;  
                         }
                         else {
@@ -1873,7 +1908,7 @@ engine{
                 int reg_left = orderby_func(c , node->left,final  ) ; 
                 int reg_right =  c->register_counter++ ;  
                         if (1){
-                            if (node->col_name != NULL ){
+                            if (node->ob_name != NULL ){
                                 emit(c , column_op ,cursor , num , reg_right  , NULL  ) ;  
                             }
                             else {
@@ -1897,7 +1932,7 @@ engine{
             else  {
                     int reg_temp = orderby_func(c , node->left ,final ) ; 
                     if (1){
-                        if (node->col_name != NULL ){
+                        if (node->ob_name != NULL ){
                             emit(c , column_op ,cursor , num , reg_temp  , NULL  ) ;  
                         }
                         else {
@@ -1931,6 +1966,11 @@ engine{
         return reg ; 
     }
 }
+
+
+
+
+//  see man in the final of the aggregate functions we pretty much need to find if we have reached the state of the or like it is like the end row so like we need to know that first and on basis we literlly need to upsate out the entire odf the code so that it gets whats the issue and do the stuff cool ? 
 
 
 #define _DEFAULT_SOURCE
@@ -8203,120 +8243,11 @@ tree * select_query( int row , int col , int check , int end_row , int end_col ,
         }
 }
 
-engine{
-    tree *find_node(tree * jhad , char *word  , tree *ans , int first ){
-        if ( jhad == NULL ){
-            return NULL ; 
-        }
-        else if ( ans != NULL ){
-            return ans ; 
-        }
-        if (strcmp(word , "SELECT") == 0 && first == 1  ){
-            if ( strcmp(jhad->comp, word) == 0  ){
-                ans  = jhad ; 
-                return ans ; 
-            }
-        }
-
-        int i = 0 ; 
-        while (i < jhad->num){
-            if (word != "SELECT" && strcmp(jhad->children[i]->comp , "SELECT" ) ==0  ){
-                find_node(jhad->children[i] , word  , ans , 1  ) ; 
-            }
-        }
-        return ans ; 
-    }
-
-
-    typedef struct find_the {
-        struct tree* groupby;
-        struct tree* orderby;
-        struct tree* limit;
-        struct tree* from;
-        struct tree* having;
-        struct tree* offset;
-        struct tree* select;
-        struct tree* where;
-        struct tree* unio;
-        struct tree* except;
-        struct tree* intersect;
-        struct tree* distinct;
-        struct tree* join;
-        struct tree* innerjoin;
-        struct tree* leftjoin;
-        struct tree* rightjoin;
-        struct tree* crossjoin;
-        struct tree* fullouterjoin;
-        struct tree* case_expre ;
-        struct tree* unioall;
-        struct tree* exceptall;
-        struct tree* intersectall;
-    } find_the;
-
-
-
-    typedef  find_the find  ; 
-    struct tree *node = NULL;
-
-    find* find_func(tree * jhad){
-        find*temp ; 
-        temp->groupby = find_node(jhad , "GROUP BY" , NULL) ; 
-        temp->orderby = find_node(jhad, "ORDER BY", NULL);
-        temp->limit = find_node(jhad, "LIMIT", NULL);
-        temp->from = find_node(jhad, "FROM", NULL);
-        temp->having = find_node(jhad, "HAVING", NULL);
-        temp->offset = find_node(jhad, "OFFSET", NULL);
-        temp->select = find_node(jhad, "SELECT", NULL);
-        temp->where = find_node(jhad, "WHERE", NULL);
-        temp->unio = find_node(jhad, "UNION", NULL);
-        temp->except = find_node(jhad, "EXCEPT", NULL);
-        temp->intersect = find_node(jhad, "INTERSECT", NULL);
-        temp->distinct = find_node(jhad, "DISTINCT", NULL);
-        temp->join = find_node(jhad, "JOIN", NULL);
-        temp->innerjoin = find_node(jhad, "INNER JOIN", NULL);
-        temp->leftjoin = find_node(jhad, "LEFT JOIN", NULL);
-        temp->rightjoin = find_node(jhad, "RIGHT JOIN", NULL);
-        temp->crossjoin = find_node(jhad, "CROSS JOIN", NULL);
-        temp->fullouterjoin = find_node(jhad, "FULL OUTER JOIN", NULL);
-        temp->case = find_node(jhad, "CASE", NULL);
-        temp->unioall = find_node(jhad, "UNION ALL", NULL);
-        temp->exceptall = find_node(jhad, "EXCEPT ALL", NULL);
-        temp->intersectall = find_node(jhad, "INTERSECT ALL", NULL);
-        return temp ; 
-    }
-
-    typedef struct compiler{
-        type * typ ; 
-        int count ; 
-        int capacity ; 
-        int register_counter ; 
-    }
-
-
-    void emit(compiler * c , int op_code , int p1 , int p2 , int p3 , void * p4  ){
-        if (c->count == c->capacity ){
-            c->capactiy  = c->capacity * 2 ; 
-            c->typ = realloc(c->typ , c->capacity * sizeof(type)) ; 
-        }
-        c->typ[c->count].operand =  op_code ; 
-        c->typ[c->count].p1 = p1 ; 
-        c->typ[c->count].p2 = p2 ; 
-        c->typ[c->count].p3 = p3 ; 
-        c->typ[c->count].p4 = p4 ; 
-        c->count++ ; 
-
-    }
-
-
-
-
-    void compile(){
-
-    }
-}
 
 
 }
+
+
 #include<strings.h>
 define PAGE_SIZE 4096
 bytecode { 
@@ -8542,8 +8473,6 @@ bytecode {
     }__attribute__((packed)) 
 
 
-
-
     int compare_sort(const void * a, const void * b , void * sorter_e  ){
         sorter sort = (sorter *)sorter_e ; 
         sort_arr * first = (sort_arr * )a ; 
@@ -8668,18 +8597,18 @@ bytecode {
             if (sort->keyinfo.coll == BINARY  ){
                 int num_1 = 0 ; 
                 int num_2 = 0 ;
-                int i = 0 ; 
-                int j = 0  ; 
+                int m = 0 ; 
+                int n = 0  ; 
                 while (  num_1 == num_2  ) {
-                    if (i < first->len ){
+                    if (m < first->len ){
                         num_1 = num_1 + (int)first->key[i] ; 
-                        i++ ; 
+                        m++ ; 
                     } 
-                    if ( j < second->len  ){
+                    if ( n < second->len  ){
                         num_2 = num_2 + (int)second->key[j] ;        
-                        j++ ;  
+                        n++ ;  
                     }      
-                    if ( i >= first->len &&  j >= second->len   ) {
+                    if ( m >= first->len &&  n >= second->len   ) {
                         break ; 
                     }
                 }
@@ -8716,18 +8645,18 @@ bytecode {
             else if (sort->keyinfo.coll == NOCASE  ){
                 int num_1 = 0 ; 
                 int num_2 = 0 ;
-                int i = 0 ; 
-                int j = 0  ; 
+                int m = 0 ; 
+                int n = 0  ; 
                 while (  num_1 == num_2  ) {
-                    if (i < first->len ){
-                        num_1 = num_1 + (int)to_lowercase(first->key[i]) ; 
-                        i++ ; 
+                    if (m < first->len ){
+                        num_1 = num_1 + (int)first->key[i] ; 
+                        m++ ; 
                     } 
-                    if ( j < second->len  ){
-                        num_2 = num_2 + (int)to_lowercase(second->key[j] )  ;        
-                        j++ ;  
+                    if ( n < second->len  ){
+                        num_2 = num_2 + (int)second->key[j] ;        
+                        n++ ;  
                     }      
-                    if ( i >= first->len &&  j >= second->len   ) {
+                    if ( m >= first->len &&  n >= second->len   ) {
                         break ; 
                     }
                 }
@@ -8764,8 +8693,8 @@ bytecode {
             else if (sort->keyinfo.coll == RTRIM  ){
                 int num_1 = 0 ; 
                 int num_2 = 0 ;
-                int i = 0 ; 
-                int j = 0  ; 
+                int m = 0 ; 
+                int n = 0  ; 
                 int len_1  = first->len -  1   ; 
                 while( len_1 >= 0 && first->key[len_1] == ' '){
                     len_1-- ; 
@@ -8779,15 +8708,15 @@ bytecode {
                 len_2++ ; 
 
                 while (  num_1 == num_2  ) {
-                    if (i <len_1 ){
+                    if (m <len_1 ){
                         num_1 = num_1 + (int)first->key[i]; 
-                        i++ ; 
+                        m++ ; 
                     } 
-                    if ( j < len_2 ){
+                    if ( n < len_2 ){
                         num_2 = num_2 + (int)second->key[j]  ;        
-                        j++ ;  
+                        n++ ;  
                     }      
-                    if ( i >= len_1 &&  j >= len_2   ) {
+                    if ( m >= len_1 &&  n >= len_2   ) {
                         break ; 
                     }
                 }
@@ -8826,284 +8755,291 @@ bytecode {
         free(second->key) ; 
         return result ; 
     }
+     int orderby_campare_sort(const void * a, const void * b , void * sorter_e){         
+                sorter sort = (sorter *)sorter_e ;     
+                int ob_counter = sort->row_count  / sizeof(orderby_key_cols) ; 
+                orderby_key_cols *ob[300];
+
+                for (int i = 0; i < ob_counter; i++) {
+                    ob[i] = malloc(sizeof(orderby_key_cols));
+                    memcpy(ob[i], buffer + (i * sizeof(orderby_key_cols)), sizeof(orderby_key_cols));
+                }
+                sort_arr * first = (sort_arr * )a ; 
+                sort_arr * second = (sort_arr * )b ; 
+                int result = 0 ; 
+                for ( int i = 0 ; i < ob_counter ; i++ ){
+                    if (result != 0 ){
+                        break ; 
+                    }
+
+                    if (first->key != NULL) { 
+                        free(first->key); 
+                    }     
+
+                  if (second->key != NULL) { 
+                    free(second->key); 
+                    }  
 
 
-    int orderby_campare_sort(const void * a, const void * b , void * sorter_e){
-    int ob_counter = total_size / (sizeof(int) * 4);
-    orderby_key_cols *ob[300];
+                    first->key = get_data_sort(first , ob[i]->reg_num ,first->len , first->key_type  ) ;  
+                    second->key = get_data_sort(second , ob[i]->reg_num  ,second->len , second->key_type  ) ;  
+                    if ( first->key_type == integer_num && second->key_type == integer_num  ){
+                        long first_num ;
+                        memcpy(&first_num, first->key, sizeof(long));
+                        long second_num  ;
+                        memcpy(&second_num, second->key, sizeof(long));
+                        if (first_num < second_num){
+                            if (ob[i]->direction == 1  ){
+                                result =  1 ; 
+                            }
+                            else { 
+                                result = -1 ; 
+                            }
+                        }
+                        else if (first_num > second_num) {
+                            if (ob[i]->direction == 1  ){
+                                result =  -1 ; 
+                            }
+                            else { 
+                                result = 1 ; 
+                            }
+                        }
+                        else { 
+                            result = 0 ; 
+                        }
 
-    for (int i = 0; i < ob_counter; i++) {
-        ob[i] = malloc(sizeof(orderby_key_cols));
-        memcpy(ob[i], buffer + (i * sizeof(orderby_key_cols)), sizeof(orderby_key_cols));
+                    }
+                    else if ( ( first->key_type == real_num && second->key_type == real_num )  ){
+                        float first_num ;
+                        memcpy(&first_num, first->key, sizeof(float));
+                        float second_num  ;
+                        memcpy(&second_num, second->key, sizeof(float));
+                        if (first_num < second_num){
+                            if (ob[i]->direction == 1  ){
+                                result =  1 ; 
+                            }
+                            else { 
+                                result = -1 ; 
+                            }
+                        }
+                        else if (first_num > second_num) {
+                            if (ob[i]->direction == 1  ){
+                                result =  -1 ; 
+                            }
+                            else { 
+                                result = 1 ; 
+                            }
+                        }
+                        else { 
+                            result = 0 ; 
+                        }
+                    }
+                    else if ( ( first->key_type == real_num && second->key_type == integer_num ) || ( first->key_type == integer_num && second->key_type == real_num )    ){
+                        float first_num;
+                        if (first->key_type == real_num) {
+                            memcpy(&first_num, first->key, sizeof(float));
+                        } 
+                        else if (first->key_type == integer_num) {
+                            long tmp;
+                            memcpy(&tmp, first->key, sizeof(long));
+                            first_num = (float)tmp;
+                        }
+
+                        float second_num;
+                        if (second->key_type == real_num) {
+                            memcpy(&second_num, second->key, sizeof(float));
+                        } 
+                        else if (second->key_type == integer_num) {
+                            long tmp;
+                            memcpy(&tmp, second->key, sizeof(long));
+                            second_num = (float)tmp;
+                        }
+
+                        if (first_num < second_num){
+                            if (ob[i]->direction == 1  ){
+                                result =  1 ; 
+                            }
+                            else { 
+                                result = -1 ; 
+                            }
+                        }
+                        else if (first_num > second_num) {
+                            if (ob[i]->direction == 1  ){
+                                result =  -1 ; 
+                            }
+                            else { 
+                                result = 1 ; 
+                            }
+                        }
+                        else { 
+                            result = 0 ; 
+                        }
+                    }      
+                    else if (first->key_type  == string_num && second->key_type == string_num ){
+                        if (sort->keyinfo.coll == BINARY  ){
+                            int num_1 = 0 ; 
+                            int num_2 = 0 ;
+                            int m = 0 ; 
+                            int n = 0  ; 
+                            while (  num_1 == num_2  ) {
+                                if (m < first->len ){
+                                    num_1 = num_1 + (int)first->key[i] ; 
+                                    m++ ; 
+                                } 
+                                if ( n < second->len  ){
+                                    num_2 = num_2 + (int)second->key[j] ;        
+                                    n++ ;  
+                                }      
+                                if ( m >= first->len &&  n >= second->len   ) {
+                                    break ; 
+                                }
+                            }
+                                if (num_1 < num_2){
+                                    if (ob[i]->direction == 1  ){
+                                        result =  1 ; 
+                                    }
+                                    else { 
+                                        result = -1 ; 
+                                    }
+                                }
+                                else if (num_1 > num_2) {
+                                    if (ob[i]->direction == 1  ){
+                                        result =  -1 ; 
+                                    }
+                                    else { 
+                                        result = 1 ; 
+                                    }
+                                }
+                                else { 
+                                    result = 0 ; 
+                                }
+
+                        }    
+
+                        else if (sort->keyinfo.coll == NOCASE  ){
+                            int num_1 = 0 ; 
+                            int num_2 = 0 ;
+                            int m = 0 ; 
+                            int n = 0  ; 
+                            while (  num_1 == num_2  ) {
+                                if (m < first->len ){
+                                    num_1 = num_1 + (int)to_lowercase(first->key[i]) ; 
+                                    m++ ; 
+                                } 
+                                if ( n < second->len  ){
+                                    num_2 = num_2 + (int)to_lowercase(second->key[j] )  ;        
+                                    n++ ;  
+                                }      
+                                if ( m >= first->len &&  n >= second->len   ) {
+                                    break ; 
+                                }
+                            }
+                                if (num_1 < num_2){
+                                    if (ob[i]->direction == 1  ){
+                                        result =  1 ; 
+                                    }
+                                    else { 
+                                        result = -1 ; 
+                                    }
+                                }
+                                else if (num_1 > num_2) {
+                                    if (ob[i]->direction == 1  ){
+                                        result =  -1 ; 
+                                    }
+                                    else { 
+                                        result = 1 ; 
+                                    }
+                                }
+                                else { 
+                                    result = 0 ; 
+                                }
+                        }   
+
+                        else if (sort->keyinfo.coll == RTRIM  ){
+                            int num_1 = 0 ; 
+                            int num_2 = 0 ;
+                            int m = 0 ; 
+                            int n = 0  ; 
+                            int len_1  = first->len -  1   ; 
+                            while( len_1 >= 0 && first->key[len_1] == ' '){
+                                len_1-- ; 
+                            }
+                            len_1++ ; 
+
+                            int len_2  = second->len - 1   ; 
+                            while( len_2 >= 0 && second->key[len_2] == ' '){
+                                len_2-- ; 
+                            }
+                            len_2++ ; 
+
+                            while (  num_1 == num_2  ) {
+                                if (m <len_1 ){
+                                    num_1 = num_1 + (int)first->key[i]; 
+                                    m++ ; 
+                                } 
+                                if ( n < len_2 ){
+                                    num_2 = num_2 + (int)second->key[j]  ;        
+                                    n++ ;  
+                                }      
+                                if ( m >= len_1 &&  n >= len_2   ) {
+                                    break ; 
+                                }
+                            }
+                                if (num_1 < num_2){
+                                    if (ob[i]->direction == 1  ){
+                                        result =  1 ; 
+                                    }
+                                    else { 
+                                        result = -1 ; 
+                                    }
+                                }
+                                else if (num_1 > num_2) {
+                                    if (ob[i]->direction == 1  ){
+                                        result =  -1 ; 
+                                    }
+                                    else { 
+                                        result = 1 ; 
+                                    }
+                                }
+                                else { 
+                                    result = 0 ; 
+                                }
+                        }   
+
+                    }
+                    else if (first->key_type == null && second->key_type != null  ){
+                        if (ob[i]->nullsfirst == 1 && ob[i]->nullslast == 0 ){
+                            result = -1 ; 
+                        }
+                        else if (ob[i]->nullsfirst == 0 && ob[i]->nullslast == 1 ){
+                            result = 1 ; 
+                        }
+                        else { 
+                            result = 0  ; 
+                        }
+                    }
+                    else if (first->key_type != null && second->key_type == null  ){
+                        if (ob[i]->nullsfirst == 1 && ob[i]->nullslast == 0 ){
+                            result = 1 ; 
+                        }
+                        else if (ob[i]->nullsfirst == 0 && ob[i]->nullslast == 1 ){
+                            result = -1 ; 
+                        }
+                        else { 
+                            result = 0  ; 
+                        }
+                    }
+                    else if (first->key_type == null && second->key_type == null  ){
+                        result = 0 ; 
+                        continue ; 
+                    }
+            
+                }
+                free(first->key) ; 
+                free(second->key) ; 
+                return result ; 
+
     }
-    sort_arr * first = (sort_arr * )a ; 
-    sort_arr * second = (sort_arr * )b ; 
-    int result = 0 ; 
-    for ( int i = 0 ; i < ob_counter ; i++ ){
-        if (result != 0 ){
-            break ; 
-        }
-        first->key = get_data_sort(first , ob[i]->reg_num ,first->len , first->key_type  ) ;  
-        second->key = get_data_sort(second , ob[i]->reg_num  ,second->len , second->key_type  ) ;  
-        if ( first->key_type == integer_num && second->key_type == integer_num  ){
-            long first_num ;
-            memcpy(&first_num, first->key, sizeof(long));
-            long second_num  ;
-            memcpy(&second_num, second->key, sizeof(long));
-            if (first_num < second_num){
-                if (ob[i]->direction == 1  ){
-                    result =  1 ; 
-                }
-                else { 
-                    result = -1 ; 
-                }
-            }
-            else if (first_num > second_num) {
-                if (ob[i]->direction == 1  ){
-                    result =  -1 ; 
-                }
-                else { 
-                    result = 1 ; 
-                }
-            }
-            else { 
-                result = 0 ; 
-            }
-
-        }
-        else if ( ( first->key_type == real_num && second->key_type == real_num )  ){
-            float first_num ;
-            memcpy(&first_num, first->key, sizeof(float));
-            float second_num  ;
-            memcpy(&second_num, second->key, sizeof(float));
-            if (first_num < second_num){
-                if (ob[i]->direction == 1  ){
-                    result =  1 ; 
-                }
-                else { 
-                    result = -1 ; 
-                }
-            }
-            else if (first_num > second_num) {
-                if (ob[i]->direction == 1  ){
-                    result =  -1 ; 
-                }
-                else { 
-                    result = 1 ; 
-                }
-            }
-            else { 
-                result = 0 ; 
-            }
-        }
-        else if ( ( first->key_type == real_num && second->key_type == integer_num ) || ( first->key_type == integer_num && second->key_type == real_num )    ){
-            float first_num;
-            if (first->key_type == real_num) {
-                memcpy(&first_num, first->key, sizeof(float));
-            } 
-            else if (first->key_type == integer_num) {
-                long tmp;
-                memcpy(&tmp, first->key, sizeof(long));
-                first_num = (float)tmp;
-            }
-
-            float second_num;
-            if (second->key_type == real_num) {
-                memcpy(&second_num, second->key, sizeof(float));
-            } 
-            else if (second->key_type == integer_num) {
-                long tmp;
-                memcpy(&tmp, second->key, sizeof(long));
-                second_num = (float)tmp;
-            }
-
-            if (first_num < second_num){
-                if (ob[i]->direction == 1  ){
-                    result =  1 ; 
-                }
-                else { 
-                    result = -1 ; 
-                }
-            }
-            else if (first_num > second_num) {
-                if (ob[i]->direction == 1  ){
-                    result =  -1 ; 
-                }
-                else { 
-                    result = 1 ; 
-                }
-            }
-            else { 
-                result = 0 ; 
-            }
-        }      
-        else if (first->key_type  == string_num && second->key_type == string_num ){
-            if (sort->keyinfo.coll == BINARY  ){
-                int num_1 = 0 ; 
-                int num_2 = 0 ;
-                int i = 0 ; 
-                int j = 0  ; 
-                while (  num_1 == num_2  ) {
-                    if (i < first->len ){
-                        num_1 = num_1 + (int)first->key[i] ; 
-                        i++ ; 
-                    } 
-                    if ( j < second->len  ){
-                        num_2 = num_2 + (int)second->key[j] ;        
-                        j++ ;  
-                    }      
-                    if ( i >= first->len &&  j >= second->len   ) {
-                        break ; 
-                    }
-                }
-                    if (num_1 < num_2){
-                        if (ob[i]->direction == 1  ){
-                            result =  1 ; 
-                        }
-                        else { 
-                            result = -1 ; 
-                        }
-                    }
-                    else if (num_1 > num_2) {
-                        if (ob[i]->direction == 1  ){
-                            result =  -1 ; 
-                        }
-                        else { 
-                            result = 1 ; 
-                        }
-                    }
-                    else { 
-                        result = 0 ; 
-                    }
-
-            }    
-
-            else if (sort->keyinfo.coll == NOCASE  ){
-                int num_1 = 0 ; 
-                int num_2 = 0 ;
-                int i = 0 ; 
-                int j = 0  ; 
-                while (  num_1 == num_2  ) {
-                    if (i < first->len ){
-                        num_1 = num_1 + (int)to_lowercase(first->key[i]) ; 
-                        i++ ; 
-                    } 
-                    if ( j < second->len  ){
-                        num_2 = num_2 + (int)to_lowercase(second->key[j] )  ;        
-                        j++ ;  
-                    }      
-                    if ( i >= first->len &&  j >= second->len   ) {
-                        break ; 
-                    }
-                }
-                    if (num_1 < num_2){
-                        if (ob[i]->direction == 1  ){
-                            result =  1 ; 
-                        }
-                        else { 
-                            result = -1 ; 
-                        }
-                    }
-                    else if (num_1 > num_2) {
-                        if (ob[i]->direction == 1  ){
-                            result =  -1 ; 
-                        }
-                        else { 
-                            result = 1 ; 
-                        }
-                    }
-                    else { 
-                        result = 0 ; 
-                    }
-            }   
-
-            else if (sort->keyinfo.coll == RTRIM  ){
-                int num_1 = 0 ; 
-                int num_2 = 0 ;
-                int i = 0 ; 
-                int j = 0  ; 
-                int len_1  = first->len -  1   ; 
-                while( len_1 >= 0 && first->key[len_1] == ' '){
-                    len_1-- ; 
-                }
-                len_1++ ; 
-
-                int len_2  = second->len - 1   ; 
-                while( len_2 >= 0 && second->key[len_2] == ' '){
-                    len_2-- ; 
-                }
-                len_2++ ; 
-
-                while (  num_1 == num_2  ) {
-                    if (i <len_1 ){
-                        num_1 = num_1 + (int)first->key[i]; 
-                        i++ ; 
-                    } 
-                    if ( j < len_2 ){
-                        num_2 = num_2 + (int)second->key[j]  ;        
-                        j++ ;  
-                    }      
-                    if ( i >= len_1 &&  j >= len_2   ) {
-                        break ; 
-                    }
-                }
-                    if (num_1 < num_2){
-                        if (ob[i]->direction == 1  ){
-                            result =  1 ; 
-                        }
-                        else { 
-                            result = -1 ; 
-                        }
-                    }
-                    else if (num_1 > num_2) {
-                        if (ob[i]->direction == 1  ){
-                            result =  -1 ; 
-                        }
-                        else { 
-                            result = 1 ; 
-                        }
-                    }
-                    else { 
-                        result = 0 ; 
-                    }
-            }   
-
-        }
-        else if (first->key_type == null && second->key_type != null  ){
-            if (ob[i]->nullsfirst == 1 && ob[i]->nullslast == 0 ){
-                result = -1 ; 
-            }
-            else if (ob[i]->nullsfirst == 0 && ob[i]->nullslast == 1 ){
-                result = 1 ; 
-            }
-            else { 
-                result = 0  ; 
-            }
-        }
-        else if (first->key_type != null && second->key_type == null  ){
-            if (ob[i]->nullsfirst == 1 && ob[i]->nullslast == 0 ){
-                result = 1 ; 
-            }
-            else if (ob[i]->nullsfirst == 0 && ob[i]->nullslast == 1 ){
-                result = -1 ; 
-            }
-        }
-        else if (first->key_type == null && second->key_type == null  ){
-            result = 0 ; 
-            continue ; 
-        }
-  
-    }
-    free(first->key) ; 
-    free(second->key) ; 
-    return result ; 
-
-}
-
-
-
-
-
 
 
 
@@ -11390,6 +11326,9 @@ bytecode {
                      qsort_r(byt->sort[op->p1].array,byt->sort[op->p1].row_count, sizeof(sort_arr), compare_sort, &byt->sort[op->p1]);             
                      break;
 
+                case orderby_sort : 
+                    qsort_r(byt->sort[op->p1].array,byt->sort[op->p1].row_count, sizeof(sort_arr), orderby_campare_sort , &byt->sort[op->p1]);             
+                     break; 
 
                 case sorter_next : 
                     if (byt->sort[op->p1].cursor < byt->sort[op->p1].row_count ){
@@ -11681,6 +11620,9 @@ int like_campare(reg *a , reg *b ){
 
 
 }
+
+
+
 
 
 

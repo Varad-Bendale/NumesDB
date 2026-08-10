@@ -86,6 +86,26 @@ engine{
         select_select_info * on ; 
     }
 
+    typedef struct extra_info_ob{
+        char * nulls   ; 
+        char * order   ; 
+    }
+    typedef struct select_ob_info{
+        char *ob_name ; 
+        char *extra_ob_name ; 
+        char *dir ; 
+        extra_info_ob * ex ; 
+        char * as  ; 
+        char * operator ; 
+        select_ob_info *left ; 
+        select_ob_info * right ; 
+        float *float_val ; 
+        unsigned char * blob ; 
+        int * num_value ; 
+        char * char_value ; 
+        int acc_reg ; 
+    }
+
     typedef struct select_info{
         select_select_info *sel[300] ;
         int col_counter ;  
@@ -98,6 +118,8 @@ engine{
         int * hash[300] ; 
         int sel_uni_counter ; 
         select_from_info *having ; 
+        select_ob_info *orderby[300] ; 
+        int orderby_counter ; 
     }
 
     typedef struct sql_master {
@@ -145,7 +167,7 @@ engine{
         return 3 ;
     }
 
-    select_select_info expre(select_select_info *ans ,    compiler *c , tree * temp){
+    select_select_info *expre(select_select_info *ans ,    compiler *c , tree * temp){
         int i = 0 ; 
         while (i < temp->num){
             if (strcmp(temp->children[i]->comp , "+")== 0 || strcmp(temp->children[i]->comp, "-")== 0 || strcmp(temp->children[i]->comp, "*")== 0 || strcmp(temp->children[i]->comp, "/")== 0 || strcmp(temp->children[i]->comp , "=")== 0 || strcmp(temp->children[i]->comp, "!=")== 0 || strcmp(temp->children[i]->comp , ">")== 0 || strcmp(temp->children[i]->comp , ">=")== 0 || strcmp(temp->children[i]->comp , "<")== 0 || strcmp(temp->children[i]->comp, "<=")== 0 || strcmp(temp->children[i]->comp , "GROUP_CONCAT")== 0 || strcmp(temp->children[i]->comp , "MAX") == 0 || strcmp(temp->children[i]->comp , "MIN") == 0 || strcmp(temp->children[i]->comp , "COUNT") == 0 || strcmp(temp->children[i]->comp, "AVG") == 0 || strcmp(temp->children[i]->comp , "SUM") == 0){
@@ -187,6 +209,48 @@ engine{
         return ans ; 
     }
 
+
+    select_ob_info *expre_order_by(select_ob_info *ans ,    compiler *c , tree * temp){
+        int i = 0 ; 
+        while (i < temp->num){
+            if (strcmp(temp->children[i]->comp , "+")== 0 || strcmp(temp->children[i]->comp, "-")== 0 || strcmp(temp->children[i]->comp, "*")== 0 || strcmp(temp->children[i]->comp, "/")== 0 || strcmp(temp->children[i]->comp , "=")== 0 || strcmp(temp->children[i]->comp, "!=")== 0 || strcmp(temp->children[i]->comp , ">")== 0 || strcmp(temp->children[i]->comp , ">=")== 0 || strcmp(temp->children[i]->comp , "<")== 0 || strcmp(temp->children[i]->comp, "<=")== 0 || strcmp(temp->children[i]->comp , "GROUP_CONCAT")== 0 || strcmp(temp->children[i]->comp , "MAX") == 0 || strcmp(temp->children[i]->comp , "MIN") == 0 || strcmp(temp->children[i]->comp , "COUNT") == 0 || strcmp(temp->children[i]->comp, "AVG") == 0 || strcmp(temp->children[i]->comp , "SUM") == 0){
+                   ans->operator = temp->children[i]->comp;
+                if (ans->left == NULL ){
+                    ans->left = malloc(sizeof(select_ob_info))
+                    expre_order_by(ans->left, c, temp->children[i]);
+                }
+                else {
+                    ans->right = malloc(sizeof(select_ob_info))
+                    expre_order_by(ans->right, c, temp->children[i]);
+                }
+            }
+            else if (col_name_to_int_main(temp->children[i]->comp, c->select) != -1 ){
+                if (ans->col_name != NULL ){
+                     ans->extra_ob_name = temp->children[i]->comp ;
+                }
+                else { 
+                    ans->ob_name = temp->children[i]->comp ;
+                 }
+             }
+            else { 
+                int check = data_type_check(temp->children[i]->comp);
+                if (check == 0){
+                    ans->num_value = atoi(temp->children[i]->comp);
+                }
+                else if (check == 1){
+                    ans->float_val = (float)atof(temp->children[i]->comp);
+                }
+                else if (check == 2){
+                    ans->blob = temp->children[i]->comp ;
+                }
+                else {
+                    ans->char_value = temp->children[i]->comp ;
+                }
+            }
+        i++;
+        }
+        return ans ; 
+    }
 
 
     void from_parser_to_struct(compiler * c  , tree * select ){
@@ -329,7 +393,110 @@ engine{
                 c->select->where = expre(temp , c , select->children[i] ) ; 
             }
             else if(strcmp(select->children[i]->comp  , "ORDER BY") == 0 ){
+                tree * orderby = c->select->children[i] ;  
+                select_ob_info *ob =  c->select->orderby ; 
+                int k = 0 ; 
+                while (  k < orderby->num ){
+                 if (c->select->groupby_counter > 0 ){
+                    if (orderby->children[k]->operator != NULL ){ 
+                            ob[c->select->orderby_counter] = malloc(sizeof(select_select_info));
+                            ob[c->select->orderby_counter]->ob_name = orderby->children[k] ; 
+                            ob[c->select->orderby_counter]->operator = NULL;
+                            ob[c->select->orderby_counter]->left = NULL;
+                            ob[c->select->orderby_counter]->right = NULL;
+                            if (orderby->children[k]->as != NULL) {
+                                ob[c->select->orderby_counter]->as = orderby->children[k]->as;
+                            }
+                            if ( orderby->direction[k] ){
+                                 ob[c->select->orderby_counter]->dir = orderby->direction[k] ;
+                            }
+                            if (k+ 1 < orderby->num ){
+                                if ( strcmp(orderby->children[k+1]->comp , "NULLS" ) == 0  ){
+                                    select_ob_info *ob_child = orderby->children[k] ; 
+                                    ob_child->extra_info_ob->nulls = malloc(sizeof(orderby->children[k+1]->comp)) ; 
+                                    memcpy(ob_child->extra_info_ob->nulls , orderby->children[k+1]->comp , sizeof(orderby->children[k+1]->comp) ) ; 
+                                    if (orderby->children[k+1]->num > 0 ){
+                                        ob_child->extra_info_ob->order = malloc(sizeof(orderby->children[k+1]->children[0]->comp)) ; 
+                                        memcpy(ob_child->extra_info_ob->order  , orderby->children[k+1]->children[0]->comp , sizeof(orderby->children[k+1]->children[0]->comp) ) ; 
+                                    }
+                                    else { 
+                                        ob_child->extra_info_ob->order = "FIRST"; 
+                                    }
+                                    k++ ; 
+                                    continue  ; 
+                                }
+                            }
 
+                            c->select->orderby_counter++;
+                    }
+                    else { 
+                        if (strcmp(groupby->children[k]->comp, "+") == 0 || strcmp(groupby->children[k]->comp, "-") == 0 ||strcmp(groupby->children[k]->comp, "*") == 0 || strcmp(groupby->children[k]->comp, "/") == 0 || strcmp(groupby->children[k]->comp, "=") == 0 || strcmp(groupby->children[k]->comp, "!=") == 0 || strcmp(groupby->children[k]->comp, ">") == 0 || strcmp(groupby->children[k]->comp, ">=") == 0 || strcmp(groupby->children[k]->comp, "<") == 0 || strcmp(groupby->children[k]->comp, "<=") == 0 || strcmp(groupby->children[k]->comp, "GROUP_CONCAT") == 0 || strcmp(groupby->children[k]->comp, "MAX") == 0 || strcmp(groupby->children[k]->comp, "MIN") == 0 || strcmp(groupby->children[k]->comp, "COUNT") == 0 || strcmp(groupby->children[k]->comp, "AVG") == 0 || strcmp(groupby->children[k]->comp, "SUM") == 0) {
+                            ob[c->select->orderby_counter] = malloc(sizeof(select_select_info));
+                            ob[c->select->orderby_counter] = expre_order_by(ob[c->select->orderby_counter] , c , orderby->children[k] );
+                             ob[c->select->orderby_counter]->operator = NULL;
+                            ob[c->select->orderby_counter]->left = NULL;
+                            ob[c->select->orderby_counter]->right = NULL;
+                            if (orderby->children[k]->as != NULL) {
+                                ob[c->select->orderby_counter]->as = orderby->children[k]->as;
+                            }
+                            if ( orderby->direction[k] ){
+                                 ob[c->select->orderby_counter]->dir = orderby->direction[k] ;
+                            }
+                            if (k+ 1 < orderby->num ){
+                                if ( strcmp(orderby->children[k+1]->comp , "NULLS" ) == 0  ){
+                                    select_ob_info *ob_child = orderby->children[k] ; 
+                                    ob_child->extra_info_ob->nulls = malloc(sizeof(orderby->children[k+1]->comp)) ; 
+                                    memcpy(ob_child->extra_info_ob->nulls , orderby->children[k+1]->comp , sizeof(orderby->children[k+1]->comp) ) ; 
+                                    if (orderby->children[k+1]->num > 0 ){
+                                        ob_child->extra_info_ob->order = malloc(sizeof(orderby->children[k+1]->children[0]->comp)) ; 
+                                        memcpy(ob_child->extra_info_ob->order  , orderby->children[k+1]->children[0]->comp , sizeof(orderby->children[k+1]->children[0]->comp) ) ; 
+                                    }
+                                    else { 
+                                        ob_child->extra_info_ob->order = "FIRST"; 
+                                    }
+                                    k++ ; 
+                                    continue  ; 
+                                }
+                            }
+
+                            c->select->orderby_counter++;
+                        }
+                    }
+                 }
+                 else { 
+                    if (orderby->children[k]->operator != NULL ){ 
+                            ob[c->select->orderby_counter] = malloc(sizeof(select_select_info));
+                            ob[c->select->orderby_counter]->ob_name = orderby->children[k] ; 
+                            ob[c->select->orderby_counter]->operator = NULL;
+                            ob[c->select->orderby_counter]->left = NULL;
+                            ob[c->select->orderby_counter]->right = NULL;
+                            if (orderby->children[k]->as != NULL) {
+                                ob[c->select->orderby_counter]->as = orderby->children[k]->as;
+                            }
+                            if ( orderby->direction[k] ){
+                                 ob[c->select->orderby_counter]->dir = orderby->direction[k] ;
+                            }
+                            if (k+ 1 < orderby->num ){
+                                if ( strcmp(orderby->children[k+1]->comp , "NULLS" ) == 0  ){
+                                    select_ob_info *ob_child = orderby->children[k] ; 
+                                    ob_child->extra_info_ob->nulls = malloc(sizeof(orderby->children[k+1]->comp)) ; 
+                                    memcpy(ob_child->extra_info_ob->nulls , orderby->children[k+1]->comp , sizeof(orderby->children[k+1]->comp) ) ; 
+                                    if (orderby->children[k+1]->num > 0 ){
+                                        ob_child->extra_info_ob->order = malloc(sizeof(orderby->children[k+1]->children[0]->comp)) ; 
+                                        memcpy(ob_child->extra_info_ob->order  , orderby->children[k+1]->children[0]->comp , sizeof(orderby->children[k+1]->children[0]->comp) ) ; 
+                                    }
+                                    else { 
+                                        ob_child->extra_info_ob->order = "FIRST"; 
+                                    }
+                                    k++ ; 
+                                    continue  ; 
+                                }
+                            }
+                            c->select->orderby_counter++;
+                    }
+                 }
+                 k++ ; 
+                }
             }
             else if (strcmp(select->children[i]->comp  , "CASE") == 0 ){
 
@@ -340,66 +507,62 @@ engine{
                 select_select_info *gb =  c->select->groupby ; 
                     while (k < groupby->num && strcmp(groupby->children[k]->comp , "HAVING") != 0  ){
                     if (strcmp(groupby->children[k]->comp, "+") == 0 || strcmp(groupby->children[k]->comp, "-") == 0 ||strcmp(groupby->children[k]->comp, "*") == 0 || strcmp(groupby->children[k]->comp, "/") == 0 || strcmp(groupby->children[k]->comp, "=") == 0 || strcmp(groupby->children[k]->comp, "!=") == 0 || strcmp(groupby->children[k]->comp, ">") == 0 || strcmp(groupby->children[k]->comp, ">=") == 0 || strcmp(groupby->children[k]->comp, "<") == 0 || strcmp(groupby->children[k]->comp, "<=") == 0 || strcmp(groupby->children[k]->comp, "GROUP_CONCAT") == 0 || strcmp(groupby->children[k]->comp, "MAX") == 0 || strcmp(groupby->children[k]->comp, "MIN") == 0 || strcmp(groupby->children[k]->comp, "COUNT") == 0 || strcmp(groupby->children[k]->comp, "AVG") == 0 || strcmp(groupby->children[k]->comp, "SUM") == 0) {
-                        gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
-                        gb[c->select.groupby_counter] =
-                        expre(gb[c->select.groupby_counter], c, groupby->children[k]);
+                        gb[c->select->groupby_counter] = malloc(sizeof(select_select_info));
+                        gb[c->select->groupby_counter] = expre(gb[c->select->groupby_counter] , c, groupby->children[k]);
                         if (select->as != NULL) {
-                            gb[c->select.groupby_counter]->as = select->as;
+                            gb[c->select->groupby_counter]->as = select->as;
                         }
                         c->select.groupby_counter++;
                     }
                     else {
                         if (col_name_to_int_main(groupby->children[k]->comp, c->select) != -1) {
-                            gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
-                            gb[c->select.groupby_counter]->col_name = groupby->children[k]->comp;
-                            gb[c->select.groupby_counter]->operator = NULL;
-                            gb[c->select.groupby_counter]->left = NULL;
-                            gb[c->select.groupby_counter]->right = NULL;
+                            gb[c->select->groupby_counter] = malloc(sizeof(select_select_info));
+                            gb[c->select->groupby_counter]->col_name = groupby->children[k]->comp;
+                            gb[c->select->groupby_counter]->operator = NULL;
+                            gb[c->select->groupby_counter]->left = NULL;
+                            gb[c->select->groupby_counter]->right = NULL;
                             if (select->as != NULL) {
-                                gb[c->select.groupby_counter]->as = select->as;
+                                gb[c->select->groupby_counter]->as = select->as;
                             }
-                            c->select.groupby_counter++;
+                            c->select->groupby_counter++;
                         }
                         else {
                             int check = data_type_check(groupby->children[k]->comp);
                             if (check == 0) {
-                                gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
-                                gb[c->select.groupby_counter]->col_name = NULL;
-                                gb[c->select.groupby_counter]->operator = NULL;
-                                gb[c->select.groupby_counter]->left = NULL;
-                                gb[c->select.groupby_counter]->right = NULL;
-                                gb[c->select.groupby_counter]->num_value = atoi(groupby->children[k]->comp);
-                                c->select.groupby_counter++;
+                                gb[c->select->groupby_counter]  = malloc(sizeof(select_select_info));
+                                gb[c->select->groupby_counter]->col_name = NULL;
+                                gb[c->select->groupby_counter]->operator = NULL;
+                                gb[c->select->groupby_counter]->left = NULL;
+                                gb[c->select->groupby_counter]->right = NULL;
+                                gb[c->select->groupby_counter]->num_value = atoi(groupby->children[k]->comp);
+                                c->select->groupby_counter++;
                             }
                             else if (check == 1) {
-
-                                gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
-                                gb[c->select.groupby_counter]->col_name = NULL;
-                                gb[c->select.groupby_counter]->operator = NULL;
-                                gb[c->select.groupby_counter]->left = NULL;
-                                gb[c->select.groupby_counter]->right = NULL;
-                                gb[c->select.groupby_counter]->float_val = (float)atof(groupby->children[k]->comp);
-                                c->select.groupby_counter++;
+                                gb[c->select->groupby_counter]  = malloc(sizeof(select_select_info));
+                                gb[c->select->groupby_counter]->col_name = NULL;
+                                gb[c->select->groupby_counter]->operator = NULL;
+                                gb[c->select->groupby_counter]->left = NULL;
+                                gb[c->select->groupby_counter]->right = NULL;
+                                gb[c->select->groupby_counter]->float_val = (float)atof(groupby->children[k]->comp);
+                                c->select->groupby_counter++;
                             }
                             else if (check == 2) {
-
-                                gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
-                                gb[c->select.groupby_counter]->col_name = NULL;
-                                gb[c->select.groupby_counter]->operator = NULL;
-                                gb[c->select.groupby_counter]->left = NULL;
-                                gb[c->select.groupby_counter]->right = NULL;
-                                gb[c->select.groupby_counter]->blob =  groupby->children[k]->comp;
-                                c->select.groupby_counter++;
+                                gb[c->select->groupby_counter]  = malloc(sizeof(select_select_info));
+                                gb[c->select->groupby_counter]->col_name = NULL;
+                                gb[c->select->groupby_counter]->operator = NULL;
+                                gb[c->select->groupby_counter]->left = NULL;
+                                gb[c->select->groupby_counter]->right = NULL;
+                                gb[c->select->groupby_counter]->blob =  groupby->children[k]->comp;
+                                c->select->groupby_counter++;
                             }
                             else {
-
-                                gb[c->select.groupby_counter] = malloc(sizeof(select_select_info));
-                                gb[c->select.groupby_counter]->col_name = NULL;
-                                gb[c->select.groupby_counter]->operator = NULL;
-                                gb[c->select.groupby_counter]->left = NULL;
-                                gb[c->select.groupby_counter]->right = NULL;
-                                gb[c->select.groupby_counter]->char_value = groupby->children[k]->comp;
-                                c->select.groupby_counter++;
+                                gb[c->select->groupby_counter]  = malloc(sizeof(select_select_info));
+                                gb[c->select->groupby_counter]->col_name = NULL;
+                                gb[c->select->groupby_counter]->operator = NULL;
+                                gb[c->select->groupby_counter]->left = NULL;
+                                gb[c->select->groupby_counter]->right = NULL;
+                                gb[c->select->groupby_counter]->char_value = groupby->children[k]->comp;
+                                c->select->groupby_counter++;
                             }
                         }
                     }
@@ -428,7 +591,6 @@ engine{
     }
 
 
-    // the funtion below is wrong the entire of the structure is changed need to do it cool 
 
     int col_name_to_int_main( char * column_name , select_info *sf  ){
         int num = -1 ; 
@@ -460,18 +622,102 @@ engine{
         return NULL ; 
     }
 
+    typedef struct orderby_key_cols{
+        int  reg_num ; 
+        int  direction ; 
+        int  nullsfirst ; 
+        int  nullslast  ; 
+    }
+    unsigned char *  sorter_orderby_init(compiler * c  , int groupby ){
+        orderby_key_cols * ob[300] ; 
+        int ob_counter = 0 ; 
+        int col = 0 ;
+        for ( int i = 0 ; i < c->select->orderby_counter ; i++ ){
+            if (c->select->orderby[i]->operator != NULL ){
+                if (1){
+                    if (col == 0 ){
+                        if (groupby == 0 ){
+                            col = c->select->col_counter++ ; 
+                        }
+                        else { 
+                            col = c->select->sel_uni_counter++ ; 
+                        }
 
+                    }
+                    else {
+                        col = col + 1 ; 
+                    }
+                }
+                ob[ob_counter]->reg_num = col ; 
+                if (1){
+                    if (strcmp(c->select->orderby[i]->dir , "ASC") == 0 ){
+                        ob[ob_counter]->direction = 0 ; 
+                    }
+                    else { 
+                        ob[ob_counter]->direction = 1 ; 
+                    }
+                 }
+                if (c->select->orderby[i]->ex != NULL){
+                    if (strcmp(c->select->orderby[i]->ex->order , "LAST") == 0 ){
+                        ob[ob_counter]->nullslast = 1 ; 
+                        ob[ob_counter]->nullsfirst = 0 ; 
+                    }
+                    else { 
+                        ob[ob_counter]->nullsfirst = 1 ; 
+                        ob[ob_counter]->nullslast = 0 ; 
+                    }
+                }
+                ob_counter++ ; 
+            }   
+            else { 
+                ob[ob_counter]->reg_num = col_name_to_int_main( c->select->orderby[1]->ob_name , c->select ) ; 
+                if (1){
+                    if (strcmp(c->select->orderby[i]->dir , "ASC") == 0 ){
+                        ob[ob_counter]->direction = 0 ; 
+                    }
+                    else { 
+                        ob[ob_counter]->direction = 1 ; 
+                    }
+                 }
+                if (c->select->orderby[i]->ex != NULL){
+                    if (strcmp(c->select->orderby[i]->ex->order , "LAST") == 0 ){
+                        ob[ob_counter]->nullslast = 1 ; 
+                        ob[ob_counter]->nullsfirst = 0 ; 
+                    }
+                    else { 
+                        ob[ob_counter]->nullsfirst = 1 ; 
+                        ob[ob_counter]->nullslast = 0 ; 
+                    }
+                }
+                ob_counter++ ; 
+            }
+        }
+        int struct_size = sizeof(orderby_key_cols);   
+        int total_size = struct_size * ob_counter;
+        unsigned char *buffer = malloc(total_size);
+        int offset = 0;
+        for (int i = 0; i < ob_counter ; i++) {
+            memcpy(buffer + offset, ob[i], struct_size);
+            offset += struct_size;
+        }
+        return buffer ; 
+    }
 
     void compile_select (compiler *c ){
         emit(c , begin_op  , -1 , -1 , -1 , NULL ) ; 
         int cursor = c->cursor_num++ ; 
+        int cursor_for_sort_orderby  = 0 ; 
         emit(c , open_read_op , cursor , sql_master->page_num ,  -1 , -1 , NULL    ) ; 
         emit(c , rewind_cursor , cursor , -1 , -1 , -1 , NULL  ) ; 
         int register_num = c->register_counter++ ; 
         c->register_start = register_num ; 
-        int loop_addr = c->count ; 
-        emit(c , eq_op , where_func(c ,c->select->where ) , -1  , MAX , "BINARY" ) ; 
         if (c->select->groupby_counter == 0 ){
+            if (c->select->orderby_counter > 0 ){
+                 cursor_for_sort_orderby = c->sorter_cursor++ ; 
+                emit(c , sorter_open , cursor_for_sort_orderby , c->select->orderby_counter , -1 , sorter_orderby_init(c , 0 )  ) ; 
+            }
+            int loop_addr = c->count ; 
+            emit(c , eq_op , where_func(c ,c->select->where ) , -1  , MAX , "BINARY" ) ; 
             for ( int i = 0 ; i < c->select->col_counter ; i++  ){
                 int num = col_name_to_int_main( c->select->sel[i]->col_name , c->select   ) ; 
                     if (c->select->sel[i]->operator == NULL ){
@@ -501,22 +747,47 @@ engine{
                     }
                     else { 
                         if ( num != -1 ){
-                             int not_needed =  func(c ,c->select->sel[i] ) ; 
+                            c->register_counter = normal_func(c ,c->select->sel[i]  ) ; 
+                            c->register_counter++ ; 
                         }
                     }
             }
+            if (c->select->orderby_counter > 0 ){
+                int extra_depletion_record = 0 ; 
+                for ( int l = 0 ; l < c->select->orderby_counter ; l++  ){
+                    if (c->select->orderby[l]->operator != NULL){
+                        c->register_counter = orderby_func_main(c , c->select->orderby[l] , false ) ; 
+                        c->register_counter++ ; 
+                        extra_depletion_record++ ; 
+                    }
+                }
+                emit(c , make_record , c->register_start , c->register_counter , c->select->register_counter + 1 , NULL ) ; 
+                emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
+                c->register_counter = c->register_counter - extra_depletion_record ; 
+            }
             emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
             c->typ[loop_addr].p2 = c->count ; 
-            emit(c , next_cursor , cursor , loop_addr   , -1 , NULL ) ; 
+            emit(c , next_cursor , cursor , loop_addr   , -1 , NULL ) ;
+            if (c->select->orderby_counter > 0 ) {
+                emit(c , )
+            }
             emit(c, close_cursor_op , cursor, -1, -1, -1, NULL);
             emit(c, halt, -1, -1, -1, -1, NULL);
         }
+        // so where you need to start is na like make the new campare function for the orderby as per ythe nulls and the direction and stuff make it not that hard 
 
         else {
+            int loop_addr = c->count ; 
+            emit(c , eq_op , where_func(c ,c->select->where ) , -1  , MAX , "BINARY" ) ; 
+            int cursor_for_sort_orderby  = 0 ;
             int cursor_sort = c->sorter_cursor++ ; 
             emit(c , sorter_open , cursor_sort,c->select->groupby_counter , -1 , { col_name_to_int_main(c->select->groupby[sel_uni_counter]->col_name   , c->select)} ) ; 
             get_all_select_stuff(c) ; 
             get_all_hash_covered_gb(c) ; 
+            if (c->select->orderby_counter > 0 ){
+                cursor_for_sort_orderby = c->sorter_cursor++   ; 
+                emit(c , sorter_open , cursor_for_sort_orderby , c->select->orderby_counter , -1 , sorter_orderby_init(c , 1 )  ) ; 
+            }
             int loop_addr_gb = c->count ; 
             sort_groupby(c) ;  
             emit(c , next_cursor , cursor , loop_addr_gb   , -1 , NULL ) ; 
@@ -571,6 +842,19 @@ engine{
                 }
                 emit(c , eq_op , having , -1 ,  MAX , NULL  ) ; 
                 int gb_hav = c->count ; 
+                if (c->select->orderby_counter > 0 ){
+                    int extra_depletion_record = 0 ; 
+                    for ( int l = 0 ; l < c->select->orderby_counter ; l++  ){
+                        if (c->select->orderby[l]->operator != NULL){
+                            c->register_counter = orderby_func_main(c , c->select->orderby[l] , false ) ; 
+                            c->register_counter++ ; 
+                            extra_depletion_record++ ; 
+                        }
+                    }
+                    emit(c , make_record , c->register_start , c->register_counter , c->select->register_counter + 1 , NULL ) ; 
+                    emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
+                    c->register_counter = c->register_counter - extra_depletion_record ; 
+                }
                 emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
                 c->typ[gb_hav].p2 = c->count ; 
                 emit(c ,goto_op , -1 ,  sorter_next_jump  , -1 , NULL ) ; 
@@ -624,6 +908,22 @@ engine{
             }
             emit(c , eq_op , having , -1 ,  MAX , NULL  ) ; 
             int gb_hav_fin = c->count ; 
+            if (c->select->orderby_counter > 0 ){
+                emit(c , sorter_sort , cursor_for_sort_orderby , -1 , -1 , NULL  ) ; 
+            }
+            if (c->select->orderby_counter > 0 ){
+                int extra_depletion_record = 0 ; 
+                for ( int l = 0 ; l < c->select->orderby_counter ; l++  ){
+                    if (c->select->orderby[l]->operator != NULL){
+                        c->register_counter = orderby_func_main(c , c->select->orderby[l] , false ) ; 
+                        c->register_counter++ ; 
+                        extra_depletion_record++ ; 
+                    }
+                }
+                emit(c , make_record , c->register_start , c->register_counter , c->select->register_counter + 1 , NULL ) ; 
+                 emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
+                c->register_counter = c->register_counter - extra_depletion_record ; 
+            }
             emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
             c->typ[gb_hav_fin].p2 = c->count ; 
             emit(c, close_cursor_op , cursor, -1, -1, -1, NULL) ;
@@ -768,13 +1068,34 @@ engine{
             cur++ ; 
         }
         i = 0 ; 
+        if (c->select->orderby_counter > 0 ){
+            while ( i < c->select->orderby_counter){
+                int num = col_name_to_int_main( c->select->orderby[i]->ob_name , c->select   )   ; 
+                if (num != -1   ){
+                    if (c->select->orderby[i]->operator != NULL ){
+                        int temp = c->register_counter ; 
+                        c->register_counter = cur ; 
+                        c->register_counter = normal_func(c ,c->select->orderby[i]  ) ; 
+                        c->register_counter++ ; 
+                        c->register_counter = temp ; 
+                        cur++ ; 
+                    }
+                }
+                else { 
+                    break ; 
+                }
+                i++ ; 
+            }
+        }
+        i = 0 ; 
         while ( i < c->select->groupby_counter){
             int num = col_name_to_int_main( c->select->groupby[i]->col_name , c->select   )   ; 
             if (num != -1   ){
                 if (c->select->groupby[i]->operator != NULL ){
                     int temp = c->register_counter ; 
                     c->register_counter = cur ; 
-                    int node =  func(c ,c->select->groupby[i]  ) ;
+                    c->register_counter = normal_func(c ,c->select->sel[i]  ) ; 
+                    c->register_counter++ ; 
                     c->register_counter = temp ; 
                 }
                 else { 
@@ -800,8 +1121,10 @@ engine{
             reg = c->register_counter++;
             emit(c, column_op, cursor, num, reg, NULL);
         }
-        else if (node->left != NULL) {             
-            reg = func(c, node->left, cursor);
+        else if (node->left != NULL) {      
+            c->register_counter = normal_func(c ,c->select->sel[i]  ) ; 
+            c->register_counter++ ;        
+           reg = func(c, node->left, cursor);
         }
         else {                         
             reg = -1;
@@ -818,8 +1141,21 @@ engine{
         return ans ;  
     }
 
+    int normal_func(compiler *c , select_select_info * node ){
+        int first_reg = c->register_counter ; 
+        int ans = func(c , node) ; 
+        c->register_counter = first_reg ; 
+        return ans ;  
+    }
 
+    int orderby_func_main(compiler *c , select_ob_info * node ){
+        int first_reg = c->register_counter ; 
+        int ans = func(c , node) ; 
+        c->register_counter = first_reg ; 
+        return ans ;  
+    }
 
+     // bug alert the func needs a new attribute known as final check it out i think its quite broken so yeah 
     int  func(compiler *c , select_select_info * node , bool final  ){
         int reg  = c->register_counter   ; 
         int operator ; 
@@ -1333,8 +1669,268 @@ engine{
         return reg ; 
     }
 
-}
 
+
+
+
+
+
+    int  orderby_func(compiler *c , select_ob_info * node , bool final  ){
+        int reg  = c->register_counter   ; 
+        int operator ; 
+        if (node->operator != NULL  ) {
+            if (strcmp(node->operator , "+")== 0 ){
+                operator = add_op ; 
+            }
+            else if (strcmp(node->operator , "-")== 0 ){
+                operator = subs_op ; 
+            }
+            else if  (strcmp(node->operator , "*")== 0 ){
+                operator = mul_op ; 
+            }   
+            else if  (strcmp(node->operator , "/")== 0 ){
+                operator = divide_op ; 
+            }
+            else if  (strcmp(node->operator , "=")== 0 ){
+                operator = eq_select_op ; 
+            }
+            else if  (strcmp(node->operator , "!=")== 0 ){
+                 operator = ne_select_op ; 
+            }
+            else if (strcmp(node->operator , ">")== 0 ){
+                 operator = gt_select_op ; 
+            }
+            else if  (strcmp(node->operator , ">=")== 0 ){
+                    operator = ge_select_op ; 
+            }
+            else if  (strcmp(node->operator , "<")== 0 ){
+                 operator = lt_select_op ; 
+            }
+            else if (strcmp(node->operator , "<=")== 0 ){
+                 operator = le_select_op ; 
+            }
+            else if (strcmp(node->operator , "AND")== 0 ){
+                 operator = and_op ; 
+            }
+            else if (strcmp(node->operator , "OR")== 0 ){
+                 operator = or_op ; 
+            }
+            else if (strcmp(node->operator , "IS NULL")== 0 ){
+                 operator = is_null ; 
+            }
+            else if(strcmp(node->operator , "IS NOT NULL")== 0 ){
+                 operator = is_not_null ; 
+            }
+            else if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
+                if (node->acc_reg == -1 ){
+                    node->acc_reg = c->register_counter++   ; 
+                    emit(c ,aggregate_init ,node->acc_reg , -1 , -1 , NULL  ) ; 
+                }
+                aggregate_select(c , node ) ; 
+                if (final == true ){
+                    emit(c ,aggregate_final ,node->acc_reg , -1 , node->acc_reg  , NULL  ) ; 
+                    emit(c ,aggregate_reset , node->acc_reg  , -1 , -1 , NULL ) ; 
+                }
+            }
+            else { 
+                return reg  ; 
+            }
+            int num = col_name_to_int_main( node->col_name , c->select   ) ; 
+            int cursor = c->cursor_num ; 
+
+
+            if (node->right == NULL && node->left == NULL  ){
+                if (operator != is_null  && operator != is_not_null ){
+                    int reg_left = c->register_counter++ ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_left , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_left , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_left , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_left , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+
+                    int reg_right =  c->register_counter++ ;    
+                    if (1){
+                        if (node->extra_col != NULL ){
+                            int extra_num = col_name_to_int_main( node->extra_col , c->select   ) ; 
+                            emit(c , column_op ,cursor , extra_num , reg_right  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_right , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_right , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_right , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_right , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_left ,reg_right , reg , -1 , NULL ) ;    
+            }
+            else {
+                int reg_temp = c->register_counter++  ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_temp , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_temp , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_temp , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_temp , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_temp ,-1 , reg , -1 , NULL ) ;    
+
+            }               
+            }
+
+
+            else if (node->right != NULL && node->left == NULL ) {
+            if (operator != is_null  && operator != is_not_null ){
+                int reg_right = func(c , node->right ,final  ) ; 
+                int reg_left =  c->register_counter++ ;  
+                        if (1){
+                            if (node->col_name != NULL ){
+                                emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
+                            }
+                            else {
+                                if (node->num_value != NULL ){
+                                    emit(c , integer_op , *node->num_value , reg_left , NULL  , NULL  ) ;   
+                                }
+                                else if (node->char_value != NULL ){
+                                    emit(c , string_op ,-1 , reg_left , -1  , (void*)node->char_value   ) ;   
+                                }
+                                else if (node->float_val != NULL ){
+                                    emit(c , real_op , -1, reg_left , N-1ULL  , (void*)node->float_val   ) ;   
+                                }
+                                else if (node->blob != NULL ){p
+                                    emit(c , blob_op ,-1 , reg_left , -1  , (void*)node->blob   ) ;   
+                                }
+                            }
+                        }
+                reg = c->register_counter++  ; 
+                emit(c , operator ,reg_left, reg_right , reg , -1 , NULL ) ;   
+            }
+            else  {
+                    int reg_temp = orderby_func(c , node->right ,final ) ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , column_op ,cursor , num , reg_temp  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_temp , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_temp , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_temp , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_temp , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_temp ,-1 , reg , -1 , NULL ) ;    
+
+            }    
+
+            }
+
+            else if(node->left != NULL && node->right == NULL ){
+            if (operator != is_null  && operator != is_not_null ){
+                int reg_left = orderby_func(c , node->left,final  ) ; 
+                int reg_right =  c->register_counter++ ;  
+                        if (1){
+                            if (node->col_name != NULL ){
+                                emit(c , column_op ,cursor , num , reg_right  , NULL  ) ;  
+                            }
+                            else {
+                                if (node->num_value != NULL ){
+                                    emit(c , integer_op , *node->num_value , reg_right , -1  , NULL  ) ;   
+                                }
+                                else if (node->char_value != NULL ){
+                                    emit(c , string_op ,-1 , reg_right , -1  , (void*)node->char_value   ) ;   
+                                }
+                                else if (node->float_val != NULL ){
+                                    emit(c , real_op , -1, reg_right , -1  , (void*)node->float_val   ) ;   
+                                }
+                                else if (node->blob != NULL ){
+                                    emit(c , blob_op ,-1 , reg_right , -1  , (void*)node->blob   ) ;   
+                                }
+                            }
+                        }
+                reg = c->register_counter++  ; 
+                emit(c , operator ,reg_left , reg_right  , reg , -1 , NULL ) ;  
+            }
+            else  {
+                    int reg_temp = orderby_func(c , node->left ,final ) ; 
+                    if (1){
+                        if (node->col_name != NULL ){
+                            emit(c , column_op ,cursor , num , reg_temp  , NULL  ) ;  
+                        }
+                        else {
+                            if (node->num_value != NULL ){
+                                emit(c , integer_op , *node->num_value , reg_temp , -1  , NULL  ) ;   
+                            }
+                            else if (node->char_value != NULL ){
+                                emit(c , string_op ,-1 , reg_temp , -1  , (void*)node->char_value   ) ;   
+                            }
+                            else if (node->float_val != NULL ){
+                                emit(c , real_op , -1, reg_temp , -1  , (void*)node->float_val   ) ;   
+                            }
+                            else if (node->blob != NULL ){
+                                emit(c , blob_op ,-1 , reg_temp , -1  , (void*)node->blob   ) ;   
+                            }
+                        }
+                    }
+                    reg = c->register_counter++  ; 
+                    emit(c , operator ,reg_temp ,-1 , reg , -1 , NULL ) ;    
+
+            }
+           }
+            else { 
+                int reg_right = orderby_func(c , node->right ,final  ) ; 
+                int reg_left = orderby_func(c , node->left,final  ) ; 
+                reg = c->register_counter++  ; 
+                emit(c , operator ,reg_left , reg_right , reg , -1 , NULL ) ;  
+            }
+        }
+
+        return reg ; 
+    }
+}
 
 
 #define _DEFAULT_SOURCE
@@ -7721,6 +8317,8 @@ engine{
 
 
 }
+#include<strings.h>
+define PAGE_SIZE 4096
 bytecode { 
     enum { 
         int_num = 1 , 
@@ -8228,6 +8826,285 @@ bytecode {
         free(second->key) ; 
         return result ; 
     }
+
+
+    int orderby_campare_sort(const void * a, const void * b , void * sorter_e){
+    int ob_counter = total_size / (sizeof(int) * 4);
+    orderby_key_cols *ob[300];
+
+    for (int i = 0; i < ob_counter; i++) {
+        ob[i] = malloc(sizeof(orderby_key_cols));
+        memcpy(ob[i], buffer + (i * sizeof(orderby_key_cols)), sizeof(orderby_key_cols));
+    }
+    sort_arr * first = (sort_arr * )a ; 
+    sort_arr * second = (sort_arr * )b ; 
+    int result = 0 ; 
+    for ( int i = 0 ; i < ob_counter ; i++ ){
+        if (result != 0 ){
+            break ; 
+        }
+        first->key = get_data_sort(first , ob[i]->reg_num ,first->len , first->key_type  ) ;  
+        second->key = get_data_sort(second , ob[i]->reg_num  ,second->len , second->key_type  ) ;  
+        if ( first->key_type == integer_num && second->key_type == integer_num  ){
+            long first_num ;
+            memcpy(&first_num, first->key, sizeof(long));
+            long second_num  ;
+            memcpy(&second_num, second->key, sizeof(long));
+            if (first_num < second_num){
+                if (ob[i]->direction == 1  ){
+                    result =  1 ; 
+                }
+                else { 
+                    result = -1 ; 
+                }
+            }
+            else if (first_num > second_num) {
+                if (ob[i]->direction == 1  ){
+                    result =  -1 ; 
+                }
+                else { 
+                    result = 1 ; 
+                }
+            }
+            else { 
+                result = 0 ; 
+            }
+
+        }
+        else if ( ( first->key_type == real_num && second->key_type == real_num )  ){
+            float first_num ;
+            memcpy(&first_num, first->key, sizeof(float));
+            float second_num  ;
+            memcpy(&second_num, second->key, sizeof(float));
+            if (first_num < second_num){
+                if (ob[i]->direction == 1  ){
+                    result =  1 ; 
+                }
+                else { 
+                    result = -1 ; 
+                }
+            }
+            else if (first_num > second_num) {
+                if (ob[i]->direction == 1  ){
+                    result =  -1 ; 
+                }
+                else { 
+                    result = 1 ; 
+                }
+            }
+            else { 
+                result = 0 ; 
+            }
+        }
+        else if ( ( first->key_type == real_num && second->key_type == integer_num ) || ( first->key_type == integer_num && second->key_type == real_num )    ){
+            float first_num;
+            if (first->key_type == real_num) {
+                memcpy(&first_num, first->key, sizeof(float));
+            } 
+            else if (first->key_type == integer_num) {
+                long tmp;
+                memcpy(&tmp, first->key, sizeof(long));
+                first_num = (float)tmp;
+            }
+
+            float second_num;
+            if (second->key_type == real_num) {
+                memcpy(&second_num, second->key, sizeof(float));
+            } 
+            else if (second->key_type == integer_num) {
+                long tmp;
+                memcpy(&tmp, second->key, sizeof(long));
+                second_num = (float)tmp;
+            }
+
+            if (first_num < second_num){
+                if (ob[i]->direction == 1  ){
+                    result =  1 ; 
+                }
+                else { 
+                    result = -1 ; 
+                }
+            }
+            else if (first_num > second_num) {
+                if (ob[i]->direction == 1  ){
+                    result =  -1 ; 
+                }
+                else { 
+                    result = 1 ; 
+                }
+            }
+            else { 
+                result = 0 ; 
+            }
+        }      
+        else if (first->key_type  == string_num && second->key_type == string_num ){
+            if (sort->keyinfo.coll == BINARY  ){
+                int num_1 = 0 ; 
+                int num_2 = 0 ;
+                int i = 0 ; 
+                int j = 0  ; 
+                while (  num_1 == num_2  ) {
+                    if (i < first->len ){
+                        num_1 = num_1 + (int)first->key[i] ; 
+                        i++ ; 
+                    } 
+                    if ( j < second->len  ){
+                        num_2 = num_2 + (int)second->key[j] ;        
+                        j++ ;  
+                    }      
+                    if ( i >= first->len &&  j >= second->len   ) {
+                        break ; 
+                    }
+                }
+                    if (num_1 < num_2){
+                        if (ob[i]->direction == 1  ){
+                            result =  1 ; 
+                        }
+                        else { 
+                            result = -1 ; 
+                        }
+                    }
+                    else if (num_1 > num_2) {
+                        if (ob[i]->direction == 1  ){
+                            result =  -1 ; 
+                        }
+                        else { 
+                            result = 1 ; 
+                        }
+                    }
+                    else { 
+                        result = 0 ; 
+                    }
+
+            }    
+
+            else if (sort->keyinfo.coll == NOCASE  ){
+                int num_1 = 0 ; 
+                int num_2 = 0 ;
+                int i = 0 ; 
+                int j = 0  ; 
+                while (  num_1 == num_2  ) {
+                    if (i < first->len ){
+                        num_1 = num_1 + (int)to_lowercase(first->key[i]) ; 
+                        i++ ; 
+                    } 
+                    if ( j < second->len  ){
+                        num_2 = num_2 + (int)to_lowercase(second->key[j] )  ;        
+                        j++ ;  
+                    }      
+                    if ( i >= first->len &&  j >= second->len   ) {
+                        break ; 
+                    }
+                }
+                    if (num_1 < num_2){
+                        if (ob[i]->direction == 1  ){
+                            result =  1 ; 
+                        }
+                        else { 
+                            result = -1 ; 
+                        }
+                    }
+                    else if (num_1 > num_2) {
+                        if (ob[i]->direction == 1  ){
+                            result =  -1 ; 
+                        }
+                        else { 
+                            result = 1 ; 
+                        }
+                    }
+                    else { 
+                        result = 0 ; 
+                    }
+            }   
+
+            else if (sort->keyinfo.coll == RTRIM  ){
+                int num_1 = 0 ; 
+                int num_2 = 0 ;
+                int i = 0 ; 
+                int j = 0  ; 
+                int len_1  = first->len -  1   ; 
+                while( len_1 >= 0 && first->key[len_1] == ' '){
+                    len_1-- ; 
+                }
+                len_1++ ; 
+
+                int len_2  = second->len - 1   ; 
+                while( len_2 >= 0 && second->key[len_2] == ' '){
+                    len_2-- ; 
+                }
+                len_2++ ; 
+
+                while (  num_1 == num_2  ) {
+                    if (i <len_1 ){
+                        num_1 = num_1 + (int)first->key[i]; 
+                        i++ ; 
+                    } 
+                    if ( j < len_2 ){
+                        num_2 = num_2 + (int)second->key[j]  ;        
+                        j++ ;  
+                    }      
+                    if ( i >= len_1 &&  j >= len_2   ) {
+                        break ; 
+                    }
+                }
+                    if (num_1 < num_2){
+                        if (ob[i]->direction == 1  ){
+                            result =  1 ; 
+                        }
+                        else { 
+                            result = -1 ; 
+                        }
+                    }
+                    else if (num_1 > num_2) {
+                        if (ob[i]->direction == 1  ){
+                            result =  -1 ; 
+                        }
+                        else { 
+                            result = 1 ; 
+                        }
+                    }
+                    else { 
+                        result = 0 ; 
+                    }
+            }   
+
+        }
+        else if (first->key_type == null && second->key_type != null  ){
+            if (ob[i]->nullsfirst == 1 && ob[i]->nullslast == 0 ){
+                result = -1 ; 
+            }
+            else if (ob[i]->nullsfirst == 0 && ob[i]->nullslast == 1 ){
+                result = 1 ; 
+            }
+            else { 
+                result = 0  ; 
+            }
+        }
+        else if (first->key_type != null && second->key_type == null  ){
+            if (ob[i]->nullsfirst == 1 && ob[i]->nullslast == 0 ){
+                result = 1 ; 
+            }
+            else if (ob[i]->nullsfirst == 0 && ob[i]->nullslast == 1 ){
+                result = -1 ; 
+            }
+        }
+        else if (first->key_type == null && second->key_type == null  ){
+            result = 0 ; 
+            continue ; 
+        }
+  
+    }
+    free(first->key) ; 
+    free(second->key) ; 
+    return result ; 
+
+}
+
+
+
+
+
+
 
 
     void *pager_get_page(Pager *pager, uint32_t page_num) {
@@ -10493,7 +11370,7 @@ bytecode {
                             sort_arr *tmp = realloc( byt->sort[op->p1].array, byt->sort[op->p1].capacity * sizeof(*byt->sort[op->p1].array)   );
                             if (tmp == NULL) { 
                                 break; 
-                            }
+                            }/
                             byt->sort[op->p1].array = tmp;
                         }
                         sort_arr * temp  = malloc(sizeof(sort_arr)) ; 
@@ -10509,9 +11386,9 @@ bytecode {
 
 
                     
-                case sorter_sort : 
-                    qsort_r(byt->sort[op->p1].array  ,byt->sort[op->p1].keycols , sizeof(sort_arr) , compare_sort  , byt->sort[op->p1] ) ; 
-                    break ; 
+                case sorter_sort:
+                     qsort_r(byt->sort[op->p1].array,byt->sort[op->p1].row_count, sizeof(sort_arr), compare_sort, &byt->sort[op->p1]);             
+                     break;
 
 
                 case sorter_next : 
@@ -10804,6 +11681,8 @@ int like_campare(reg *a , reg *b ){
 
 
 }
+
+
 
 void process_query(){
 	for ( int i = 0 ; i < edit.query_lines ; i++ ){

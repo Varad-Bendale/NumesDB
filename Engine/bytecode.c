@@ -509,6 +509,285 @@ bytecode {
     }
 
 
+    int orderby_campare_sort(const void * a, const void * b , void * sorter_e){
+    int ob_counter = total_size / (sizeof(int) * 4);
+    orderby_key_cols *ob[300];
+
+    for (int i = 0; i < ob_counter; i++) {
+        ob[i] = malloc(sizeof(orderby_key_cols));
+        memcpy(ob[i], buffer + (i * sizeof(orderby_key_cols)), sizeof(orderby_key_cols));
+    }
+    sort_arr * first = (sort_arr * )a ; 
+    sort_arr * second = (sort_arr * )b ; 
+    int result = 0 ; 
+    for ( int i = 0 ; i < ob_counter ; i++ ){
+        if (result != 0 ){
+            break ; 
+        }
+        first->key = get_data_sort(first , ob[i]->reg_num ,first->len , first->key_type  ) ;  
+        second->key = get_data_sort(second , ob[i]->reg_num  ,second->len , second->key_type  ) ;  
+        if ( first->key_type == integer_num && second->key_type == integer_num  ){
+            long first_num ;
+            memcpy(&first_num, first->key, sizeof(long));
+            long second_num  ;
+            memcpy(&second_num, second->key, sizeof(long));
+            if (first_num < second_num){
+                if (ob[i]->direction == 1  ){
+                    result =  1 ; 
+                }
+                else { 
+                    result = -1 ; 
+                }
+            }
+            else if (first_num > second_num) {
+                if (ob[i]->direction == 1  ){
+                    result =  -1 ; 
+                }
+                else { 
+                    result = 1 ; 
+                }
+            }
+            else { 
+                result = 0 ; 
+            }
+
+        }
+        else if ( ( first->key_type == real_num && second->key_type == real_num )  ){
+            float first_num ;
+            memcpy(&first_num, first->key, sizeof(float));
+            float second_num  ;
+            memcpy(&second_num, second->key, sizeof(float));
+            if (first_num < second_num){
+                if (ob[i]->direction == 1  ){
+                    result =  1 ; 
+                }
+                else { 
+                    result = -1 ; 
+                }
+            }
+            else if (first_num > second_num) {
+                if (ob[i]->direction == 1  ){
+                    result =  -1 ; 
+                }
+                else { 
+                    result = 1 ; 
+                }
+            }
+            else { 
+                result = 0 ; 
+            }
+        }
+        else if ( ( first->key_type == real_num && second->key_type == integer_num ) || ( first->key_type == integer_num && second->key_type == real_num )    ){
+            float first_num;
+            if (first->key_type == real_num) {
+                memcpy(&first_num, first->key, sizeof(float));
+            } 
+            else if (first->key_type == integer_num) {
+                long tmp;
+                memcpy(&tmp, first->key, sizeof(long));
+                first_num = (float)tmp;
+            }
+
+            float second_num;
+            if (second->key_type == real_num) {
+                memcpy(&second_num, second->key, sizeof(float));
+            } 
+            else if (second->key_type == integer_num) {
+                long tmp;
+                memcpy(&tmp, second->key, sizeof(long));
+                second_num = (float)tmp;
+            }
+
+            if (first_num < second_num){
+                if (ob[i]->direction == 1  ){
+                    result =  1 ; 
+                }
+                else { 
+                    result = -1 ; 
+                }
+            }
+            else if (first_num > second_num) {
+                if (ob[i]->direction == 1  ){
+                    result =  -1 ; 
+                }
+                else { 
+                    result = 1 ; 
+                }
+            }
+            else { 
+                result = 0 ; 
+            }
+        }      
+        else if (first->key_type  == string_num && second->key_type == string_num ){
+            if (sort->keyinfo.coll == BINARY  ){
+                int num_1 = 0 ; 
+                int num_2 = 0 ;
+                int i = 0 ; 
+                int j = 0  ; 
+                while (  num_1 == num_2  ) {
+                    if (i < first->len ){
+                        num_1 = num_1 + (int)first->key[i] ; 
+                        i++ ; 
+                    } 
+                    if ( j < second->len  ){
+                        num_2 = num_2 + (int)second->key[j] ;        
+                        j++ ;  
+                    }      
+                    if ( i >= first->len &&  j >= second->len   ) {
+                        break ; 
+                    }
+                }
+                    if (num_1 < num_2){
+                        if (ob[i]->direction == 1  ){
+                            result =  1 ; 
+                        }
+                        else { 
+                            result = -1 ; 
+                        }
+                    }
+                    else if (num_1 > num_2) {
+                        if (ob[i]->direction == 1  ){
+                            result =  -1 ; 
+                        }
+                        else { 
+                            result = 1 ; 
+                        }
+                    }
+                    else { 
+                        result = 0 ; 
+                    }
+
+            }    
+
+            else if (sort->keyinfo.coll == NOCASE  ){
+                int num_1 = 0 ; 
+                int num_2 = 0 ;
+                int i = 0 ; 
+                int j = 0  ; 
+                while (  num_1 == num_2  ) {
+                    if (i < first->len ){
+                        num_1 = num_1 + (int)to_lowercase(first->key[i]) ; 
+                        i++ ; 
+                    } 
+                    if ( j < second->len  ){
+                        num_2 = num_2 + (int)to_lowercase(second->key[j] )  ;        
+                        j++ ;  
+                    }      
+                    if ( i >= first->len &&  j >= second->len   ) {
+                        break ; 
+                    }
+                }
+                    if (num_1 < num_2){
+                        if (ob[i]->direction == 1  ){
+                            result =  1 ; 
+                        }
+                        else { 
+                            result = -1 ; 
+                        }
+                    }
+                    else if (num_1 > num_2) {
+                        if (ob[i]->direction == 1  ){
+                            result =  -1 ; 
+                        }
+                        else { 
+                            result = 1 ; 
+                        }
+                    }
+                    else { 
+                        result = 0 ; 
+                    }
+            }   
+
+            else if (sort->keyinfo.coll == RTRIM  ){
+                int num_1 = 0 ; 
+                int num_2 = 0 ;
+                int i = 0 ; 
+                int j = 0  ; 
+                int len_1  = first->len -  1   ; 
+                while( len_1 >= 0 && first->key[len_1] == ' '){
+                    len_1-- ; 
+                }
+                len_1++ ; 
+
+                int len_2  = second->len - 1   ; 
+                while( len_2 >= 0 && second->key[len_2] == ' '){
+                    len_2-- ; 
+                }
+                len_2++ ; 
+
+                while (  num_1 == num_2  ) {
+                    if (i <len_1 ){
+                        num_1 = num_1 + (int)first->key[i]; 
+                        i++ ; 
+                    } 
+                    if ( j < len_2 ){
+                        num_2 = num_2 + (int)second->key[j]  ;        
+                        j++ ;  
+                    }      
+                    if ( i >= len_1 &&  j >= len_2   ) {
+                        break ; 
+                    }
+                }
+                    if (num_1 < num_2){
+                        if (ob[i]->direction == 1  ){
+                            result =  1 ; 
+                        }
+                        else { 
+                            result = -1 ; 
+                        }
+                    }
+                    else if (num_1 > num_2) {
+                        if (ob[i]->direction == 1  ){
+                            result =  -1 ; 
+                        }
+                        else { 
+                            result = 1 ; 
+                        }
+                    }
+                    else { 
+                        result = 0 ; 
+                    }
+            }   
+
+        }
+        else if (first->key_type == null && second->key_type != null  ){
+            if (ob[i]->nullsfirst == 1 && ob[i]->nullslast == 0 ){
+                result = -1 ; 
+            }
+            else if (ob[i]->nullsfirst == 0 && ob[i]->nullslast == 1 ){
+                result = 1 ; 
+            }
+            else { 
+                result = 0  ; 
+            }
+        }
+        else if (first->key_type != null && second->key_type == null  ){
+            if (ob[i]->nullsfirst == 1 && ob[i]->nullslast == 0 ){
+                result = 1 ; 
+            }
+            else if (ob[i]->nullsfirst == 0 && ob[i]->nullslast == 1 ){
+                result = -1 ; 
+            }
+        }
+        else if (first->key_type == null && second->key_type == null  ){
+            result = 0 ; 
+            continue ; 
+        }
+  
+    }
+    free(first->key) ; 
+    free(second->key) ; 
+    return result ; 
+
+}
+
+
+
+
+
+
+
+
     void *pager_get_page(Pager *pager, uint32_t page_num) {
         void *buf = malloc(PAGE_SIZE);
         fseek(pager->file, page_num * PAGE_SIZE, SEEK_SET);
@@ -2788,9 +3067,9 @@ bytecode {
 
 
                     
-                case sorter_sort : 
-                    qsort_r(byt->sort[op->p1].array  ,byt->sort[op->p1].keycols , sizeof(sort_arr) , compare_sort  , byt->sort[op->p1] ) ; 
-                    break ; 
+                case sorter_sort:
+                     qsort_r(byt->sort[op->p1].array,byt->sort[op->p1].row_count, sizeof(sort_arr), compare_sort, &byt->sort[op->p1]);             
+                     break;
 
 
                 case sorter_next : 
@@ -3083,3 +3362,7 @@ int like_campare(reg *a , reg *b ){
 
 
 }
+
+
+
+

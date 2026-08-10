@@ -628,7 +628,7 @@ engine{
         int  nullsfirst ; 
         int  nullslast  ; 
     }
-    unsigned char *  sorter_orderby_init(compiler * c ){
+    unsigned char *  sorter_orderby_init(compiler * c  , int groupby ){
         orderby_key_cols * ob[300] ; 
         int ob_counter = 0 ; 
         int col = 0 ;
@@ -636,7 +636,13 @@ engine{
             if (c->select->orderby[i]->operator != NULL ){
                 if (1){
                     if (col == 0 ){
-                        col = c->select->col_counter++ ; 
+                        if (groupby == 0 ){
+                            col = c->select->col_counter++ ; 
+                        }
+                        else { 
+                            col = c->select->sel_uni_counter++ ; 
+                        }
+
                     }
                     else {
                         col = col + 1 ; 
@@ -708,7 +714,7 @@ engine{
         if (c->select->groupby_counter == 0 ){
             if (c->select->orderby_counter > 0 ){
                  cursor_for_sort_orderby = c->sorter_cursor++ ; 
-                emit(c , sorter_open , cursor_for_sort_orderby , c->select->orderby_counter , -1 , sorter_orderby_init(c)  ) ; 
+                emit(c , sorter_open , cursor_for_sort_orderby , c->select->orderby_counter , -1 , sorter_orderby_init(c , 0 )  ) ; 
             }
             int loop_addr = c->count ; 
             emit(c , eq_op , where_func(c ,c->select->where ) , -1  , MAX , "BINARY" ) ; 
@@ -756,12 +762,15 @@ engine{
                     }
                 }
                 emit(c , make_record , c->register_start , c->register_counter , c->select->register_counter + 1 , NULL ) ; 
-                 emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
+                emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
                 c->register_counter = c->register_counter - extra_depletion_record ; 
             }
             emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
             c->typ[loop_addr].p2 = c->count ; 
-            emit(c , next_cursor , cursor , loop_addr   , -1 , NULL ) ; 
+            emit(c , next_cursor , cursor , loop_addr   , -1 , NULL ) ;
+            if (c->select->orderby_counter > 0 ) {
+                emit(c , )
+            }
             emit(c, close_cursor_op , cursor, -1, -1, -1, NULL);
             emit(c, halt, -1, -1, -1, -1, NULL);
         }
@@ -770,11 +779,15 @@ engine{
         else {
             int loop_addr = c->count ; 
             emit(c , eq_op , where_func(c ,c->select->where ) , -1  , MAX , "BINARY" ) ; 
+            int cursor_for_sort_orderby  = 0 ;
             int cursor_sort = c->sorter_cursor++ ; 
             emit(c , sorter_open , cursor_sort,c->select->groupby_counter , -1 , { col_name_to_int_main(c->select->groupby[sel_uni_counter]->col_name   , c->select)} ) ; 
-
             get_all_select_stuff(c) ; 
             get_all_hash_covered_gb(c) ; 
+            if (c->select->orderby_counter > 0 ){
+                cursor_for_sort_orderby = c->sorter_cursor++   ; 
+                emit(c , sorter_open , cursor_for_sort_orderby , c->select->orderby_counter , -1 , sorter_orderby_init(c , 1 )  ) ; 
+            }
             int loop_addr_gb = c->count ; 
             sort_groupby(c) ;  
             emit(c , next_cursor , cursor , loop_addr_gb   , -1 , NULL ) ; 
@@ -829,6 +842,19 @@ engine{
                 }
                 emit(c , eq_op , having , -1 ,  MAX , NULL  ) ; 
                 int gb_hav = c->count ; 
+                if (c->select->orderby_counter > 0 ){
+                    int extra_depletion_record = 0 ; 
+                    for ( int l = 0 ; l < c->select->orderby_counter ; l++  ){
+                        if (c->select->orderby[l]->operator != NULL){
+                            c->register_counter = orderby_func_main(c , c->select->orderby[l] , false ) ; 
+                            c->register_counter++ ; 
+                            extra_depletion_record++ ; 
+                        }
+                    }
+                    emit(c , make_record , c->register_start , c->register_counter , c->select->register_counter + 1 , NULL ) ; 
+                    emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
+                    c->register_counter = c->register_counter - extra_depletion_record ; 
+                }
                 emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
                 c->typ[gb_hav].p2 = c->count ; 
                 emit(c ,goto_op , -1 ,  sorter_next_jump  , -1 , NULL ) ; 
@@ -884,6 +910,19 @@ engine{
             int gb_hav_fin = c->count ; 
             if (c->select->orderby_counter > 0 ){
                 emit(c , sorter_sort , cursor_for_sort_orderby , -1 , -1 , NULL  ) ; 
+            }
+            if (c->select->orderby_counter > 0 ){
+                int extra_depletion_record = 0 ; 
+                for ( int l = 0 ; l < c->select->orderby_counter ; l++  ){
+                    if (c->select->orderby[l]->operator != NULL){
+                        c->register_counter = orderby_func_main(c , c->select->orderby[l] , false ) ; 
+                        c->register_counter++ ; 
+                        extra_depletion_record++ ; 
+                    }
+                }
+                emit(c , make_record , c->register_start , c->register_counter , c->select->register_counter + 1 , NULL ) ; 
+                 emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
+                c->register_counter = c->register_counter - extra_depletion_record ; 
             }
             emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
             c->typ[gb_hav_fin].p2 = c->count ; 
@@ -1029,6 +1068,26 @@ engine{
             cur++ ; 
         }
         i = 0 ; 
+        if (c->select->orderby_counter > 0 ){
+            while ( i < c->select->orderby_counter){
+                int num = col_name_to_int_main( c->select->orderby[i]->ob_name , c->select   )   ; 
+                if (num != -1   ){
+                    if (c->select->orderby[i]->operator != NULL ){
+                        int temp = c->register_counter ; 
+                        c->register_counter = cur ; 
+                        c->register_counter = normal_func(c ,c->select->orderby[i]  ) ; 
+                        c->register_counter++ ; 
+                        c->register_counter = temp ; 
+                        cur++ ; 
+                    }
+                }
+                else { 
+                    break ; 
+                }
+                i++ ; 
+            }
+        }
+        i = 0 ; 
         while ( i < c->select->groupby_counter){
             int num = col_name_to_int_main( c->select->groupby[i]->col_name , c->select   )   ; 
             if (num != -1   ){
@@ -1096,7 +1155,7 @@ engine{
         return ans ;  
     }
 
-// bug alert the func needs a new attribute known as final check it out i think its quite broken so yeah 
+     // bug alert the func needs a new attribute known as final check it out i think its quite broken so yeah 
     int  func(compiler *c , select_select_info * node , bool final  ){
         int reg  = c->register_counter   ; 
         int operator ; 
@@ -1610,7 +1669,7 @@ engine{
         return reg ; 
     }
 
-}
+
 
 
 
@@ -1871,3 +1930,4 @@ engine{
 
         return reg ; 
     }
+}

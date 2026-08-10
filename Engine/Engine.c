@@ -627,36 +627,36 @@ engine{
         int  direction ; 
         int  nullsfirst ; 
         int  nullslast  ; 
-    }
+    }orderby_key_cols;
+
+
     unsigned char *  sorter_orderby_init(compiler * c  , int groupby ){
         orderby_key_cols * ob[300] ; 
         int ob_counter = 0 ; 
         int col = 0 ;
         for ( int i = 0 ; i < c->select->orderby_counter ; i++ ){
             if (c->select->orderby[i]->operator != NULL ){
-                if (1){
-                    if (col == 0 ){
-                        if (groupby == 0 ){
-                            col = c->select->col_counter++ ; 
-                        }
-                        else { 
-                            col = c->select->sel_uni_counter++ ; 
-                        }
-
-                    }
-                    else {
-                        col = col + 1 ; 
-                    }
-                }
-                ob[ob_counter]->reg_num = col ; 
-                if (1){
-                    if (strcmp(c->select->orderby[i]->dir , "ASC") == 0 ){
-                        ob[ob_counter]->direction = 0 ; 
+                ob[i] = malloc(sizeof(orderby_key_cols));
+                if (col == 0 ){
+                    if (groupby == 0 ){
+                        col = c->select->col_counter++ ; 
                     }
                     else { 
-                        ob[ob_counter]->direction = 1 ; 
+                        col = c->select->sel_uni_counter++ ; 
                     }
-                 }
+
+                }
+                else if (col != 0 ) {
+                    col = col + 1 ; 
+                }
+
+                ob[ob_counter]->reg_num = col ; 
+                if (strcmp(c->select->orderby[i]->dir , "ASC") == 0 ){
+                    ob[ob_counter]->direction = 0 ; 
+                }
+                else if (strcmp(c->select->orderby[i]->dir , "DSC") == 0 ) { 
+                    ob[ob_counter]->direction = 1 ; 
+                }
                 if (c->select->orderby[i]->ex != NULL){
                     if (strcmp(c->select->orderby[i]->ex->order , "LAST") == 0 ){
                         ob[ob_counter]->nullslast = 1 ; 
@@ -667,18 +667,38 @@ engine{
                         ob[ob_counter]->nullslast = 0 ; 
                     }
                 }
-                ob_counter++ ; 
+                else if (c->select->orderby[i]->ex == NULL ){
+                        ob[ob_counter]->nullsfirst = 0 ; 
+                        ob[ob_counter]->nullslast = 0 ; 
+                }
+                if (ob_counter < 300 ){
+                    ob_counter++ ; 
+                }
+
             }   
             else { 
-                ob[ob_counter]->reg_num = col_name_to_int_main( c->select->orderby[1]->ob_name , c->select ) ; 
-                if (1){
-                    if (strcmp(c->select->orderby[i]->dir , "ASC") == 0 ){
-                        ob[ob_counter]->direction = 0 ; 
+                ob[i] = malloc(sizeof(orderby_key_cols));
+                ob[ob_counter]->reg_num = col_name_to_int_main( c->select->orderby[i]->ob_name , c->select ) ; 
+                if (col == 0 ){
+                    if (groupby == 0 ){
+                        col = c->select->col_counter++ ; 
                     }
                     else { 
-                        ob[ob_counter]->direction = 1 ; 
+                        col = c->select->sel_uni_counter++ ; 
                     }
-                 }
+
+                }
+                else if (col != 0 ) {
+                    col = col + 1 ; 
+                }
+
+                ob[ob_counter]->reg_num = col ; 
+                if (strcmp(c->select->orderby[i]->dir , "ASC") == 0 ){
+                    ob[ob_counter]->direction = 0 ; 
+                }
+                else if (strcmp(c->select->orderby[i]->dir , "DSC") == 0 ) { 
+                    ob[ob_counter]->direction = 1 ; 
+                }
                 if (c->select->orderby[i]->ex != NULL){
                     if (strcmp(c->select->orderby[i]->ex->order , "LAST") == 0 ){
                         ob[ob_counter]->nullslast = 1 ; 
@@ -689,7 +709,14 @@ engine{
                         ob[ob_counter]->nullslast = 0 ; 
                     }
                 }
-                ob_counter++ ; 
+                else if (c->select->orderby[i]->ex == NULL ){
+                        ob[ob_counter]->nullsfirst = 0 ; 
+                        ob[ob_counter]->nullslast = 0 ; 
+                }
+                if (ob_counter < 300 ){
+                    ob_counter++ ; 
+                }
+
             }
         }
         int struct_size = sizeof(orderby_key_cols);   
@@ -761,15 +788,22 @@ engine{
                         extra_depletion_record++ ; 
                     }
                 }
-                emit(c , make_record , c->register_start , c->register_counter , c->select->register_counter + 1 , NULL ) ; 
-                emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
+                emit(c , make_record , c->register_start , c->register_counter , c->register_counter + 1 , NULL ) ; 
+                emit(c , sorter_insert , cursor_for_sort_orderby ,  c->register_counter + 1  , -1  , NULL) ; 
                 c->register_counter = c->register_counter - extra_depletion_record ; 
             }
-            emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
+            if (c->select->orderby_counter == 0 ){
+                emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
+            }
             c->typ[loop_addr].p2 = c->count ; 
             emit(c , next_cursor , cursor , loop_addr   , -1 , NULL ) ;
             if (c->select->orderby_counter > 0 ) {
-                emit(c , )
+                emit(c , orderby_sort , cursor_for_sort_orderby , -1 , -1 , NULL ) ; 
+                int orderby_sort_addr = c->count ; 
+                int start_orderby_reg_counter = c->register_counter++ ; 
+                emit(c , sorter_data , cursor_for_sort_orderby , c->register_counter , -1 , NULL ) ; 
+                emit(c , result_row , start_orderby_reg_counter , start_orderby_reg_counter+1 , -1  , -1 , NULL ) ; 
+                emit(c , sorter_next , cursor_for_sort_orderby , orderby_sort_addr , -1 , NULL ) ; 
             }
             emit(c, close_cursor_op , cursor, -1, -1, -1, NULL);
             emit(c, halt, -1, -1, -1, -1, NULL);
@@ -851,8 +885,8 @@ engine{
                             extra_depletion_record++ ; 
                         }
                     }
-                    emit(c , make_record , c->register_start , c->register_counter , c->select->register_counter + 1 , NULL ) ; 
-                    emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
+                    emit(c , make_record , c->register_start , c->register_counter , c->register_counter + 1 , NULL ) ; 
+                    emit(c , sorter_insert , cursor_for_sort_orderby ,  c->register_counter + 1  , -1  , NULL) ; 
                     c->register_counter = c->register_counter - extra_depletion_record ; 
                 }
                 emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
@@ -909,9 +943,6 @@ engine{
             emit(c , eq_op , having , -1 ,  MAX , NULL  ) ; 
             int gb_hav_fin = c->count ; 
             if (c->select->orderby_counter > 0 ){
-                emit(c , sorter_sort , cursor_for_sort_orderby , -1 , -1 , NULL  ) ; 
-            }
-            if (c->select->orderby_counter > 0 ){
                 int extra_depletion_record = 0 ; 
                 for ( int l = 0 ; l < c->select->orderby_counter ; l++  ){
                     if (c->select->orderby[l]->operator != NULL){
@@ -920,16 +951,29 @@ engine{
                         extra_depletion_record++ ; 
                     }
                 }
-                emit(c , make_record , c->register_start , c->register_counter , c->select->register_counter + 1 , NULL ) ; 
-                 emit(c , sorter_insert , cursor_for_sort_orderby ,  c->select->register_counter + 1  , -1  , NULL) ; 
+                emit(c , make_record , c->register_start , c->register_counter , c->register_counter + 1 , NULL ) ; 
+                 emit(c , sorter_insert , cursor_for_sort_orderby ,  c->register_counter + 1  , -1  , NULL) ; 
                 c->register_counter = c->register_counter - extra_depletion_record ; 
             }
-            emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
+            if (c->select->orderby_counter > 0 ) {
+                emit(c , orderby_sort , cursor_for_sort_orderby , -1 , -1 , NULL ) ; 
+            }
+            if (c->select->orderby_counter == 0 ){
+                emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
+            }
             c->typ[gb_hav_fin].p2 = c->count ; 
+            if (c->select->orderby_counter > 0 ) {
+                emit(c , orderby_sort , cursor_for_sort_orderby , -1 , -1 , NULL ) ; 
+                int orderby_sort_addr = c->count ; 
+                int start_orderby_reg_counter = c->register_counter++ ; 
+                emit(c , sorter_data , cursor_for_sort_orderby , c->register_counter , -1 , NULL ) ; 
+                emit(c , result_row , start_orderby_reg_counter , start_orderby_reg_counter+1 , -1  , -1 , NULL ) ; 
+                emit(c , sorter_next , cursor_for_sort_orderby , orderby_sort_addr , -1 , NULL ) ; 
+            }
             emit(c, close_cursor_op , cursor, -1, -1, -1, NULL) ;
             emit(c, halt, -1, -1, -1, -1, NULL) ;
          }
-
+        
     }
 
     // one more boring stuff simply see liek here in the where na we have to check wheter the thing we have is 0 or 1 true or false if it is false you need to do the next command execute so for that one once you do the next command so now the thing is na we have the eq_op bytecode for the thing which like checks if the thing is  true or flase  then it like jumps to the next part the issue we dont know where the next_op thing will come in the execution so we simply put it as -1 and then we just updat ething thing when we find it simple as that 
@@ -1150,7 +1194,7 @@ engine{
 
     int orderby_func_main(compiler *c , select_ob_info * node ){
         int first_reg = c->register_counter ; 
-        int ans = func(c , node) ; 
+        int ans = orderby_func(c , node) ; 
         c->register_counter = first_reg ; 
         return ans ;  
     }
@@ -1411,9 +1455,6 @@ engine{
 
         return reg ; 
     }
-
-
-
     int  group_by_func(compiler *c , select_select_info * node  , bool final ){
         int reg = c->register_counter    ; 
         int operator ; 
@@ -1665,15 +1706,9 @@ engine{
             reg = c->register_counter++  ; 
             emit(c , operator ,reg_left , reg_right , reg , -1 , NULL ) ;  
         }
-    }
+        }
         return reg ; 
     }
-
-
-
-
-
-
 
     int  orderby_func(compiler *c , select_ob_info * node , bool final  ){
         int reg  = c->register_counter   ; 
@@ -1735,7 +1770,7 @@ engine{
             else { 
                 return reg  ; 
             }
-            int num = col_name_to_int_main( node->col_name , c->select   ) ; 
+            int num = col_name_to_int_main( node->ob_name , c->select   ) ; 
             int cursor = c->cursor_num ; 
 
 
@@ -1743,7 +1778,7 @@ engine{
                 if (operator != is_null  && operator != is_not_null ){
                     int reg_left = c->register_counter++ ; 
                     if (1){
-                        if (node->col_name != NULL ){
+                        if (node->ob_name != NULL ){
                             emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
                         }
                         else {
@@ -1764,8 +1799,8 @@ engine{
 
                     int reg_right =  c->register_counter++ ;    
                     if (1){
-                        if (node->extra_col != NULL ){
-                            int extra_num = col_name_to_int_main( node->extra_col , c->select   ) ; 
+                        if (node->extra_ob_name != NULL ){
+                            int extra_num = col_name_to_int_main( node->extra_ob_name , c->select   ) ; 
                             emit(c , column_op ,cursor , extra_num , reg_right  , NULL  ) ;  
                         }
                         else {
@@ -1789,7 +1824,7 @@ engine{
             else {
                 int reg_temp = c->register_counter++  ; 
                     if (1){
-                        if (node->col_name != NULL ){
+                        if (node->ob_name != NULL ){
                             emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
                         }
                         else {
@@ -1819,7 +1854,7 @@ engine{
                 int reg_right = func(c , node->right ,final  ) ; 
                 int reg_left =  c->register_counter++ ;  
                         if (1){
-                            if (node->col_name != NULL ){
+                            if (node->ob_name != NULL ){
                                 emit(c , column_op ,cursor , num , reg_left  , NULL  ) ;  
                             }
                             else {
@@ -1843,7 +1878,7 @@ engine{
             else  {
                     int reg_temp = orderby_func(c , node->right ,final ) ; 
                     if (1){
-                        if (node->col_name != NULL ){
+                        if (node->ob_name != NULL ){
                             emit(c , column_op ,cursor , num , reg_temp  , NULL  ) ;  
                         }
                         else {
@@ -1873,7 +1908,7 @@ engine{
                 int reg_left = orderby_func(c , node->left,final  ) ; 
                 int reg_right =  c->register_counter++ ;  
                         if (1){
-                            if (node->col_name != NULL ){
+                            if (node->ob_name != NULL ){
                                 emit(c , column_op ,cursor , num , reg_right  , NULL  ) ;  
                             }
                             else {
@@ -1897,7 +1932,7 @@ engine{
             else  {
                     int reg_temp = orderby_func(c , node->left ,final ) ; 
                     if (1){
-                        if (node->col_name != NULL ){
+                        if (node->ob_name != NULL ){
                             emit(c , column_op ,cursor , num , reg_temp  , NULL  ) ;  
                         }
                         else {
@@ -1931,3 +1966,8 @@ engine{
         return reg ; 
     }
 }
+
+
+
+
+//  see man in the final of the aggregate functions we pretty much need to find if we have reached the state of the or like it is like the end row so like we need to know that first and on basis we literlly need to upsate out the entire odf the code so that it gets whats the issue and do the stuff cool ? 

@@ -109,6 +109,7 @@ engine{
     typedef struct select_info{
         select_select_info *sel[300] ;
         int col_counter ;  
+        bool select_agg ; 
         select_from_info *from[300] ; 
         int tables_counter ; 
         select_from_info *where ; 
@@ -744,7 +745,7 @@ engine{
                 emit(c , sorter_open , cursor_for_sort_orderby , c->select->orderby_counter , -1 , sorter_orderby_init(c , 0 )  ) ; 
             }
             int loop_addr = c->count ; 
-            emit(c , eq_op , where_func(c ,c->select->where ) , -1  , MAX , "BINARY" ) ; 
+            emit(c , eq_op , where_func(c ,c->select->where , false  ) , -1  , MAX , "BINARY" ) ; 
             for ( int i = 0 ; i < c->select->col_counter ; i++  ){
                 int num = col_name_to_int_main( c->select->sel[i]->col_name , c->select   ) ; 
                     if (c->select->sel[i]->operator == NULL ){
@@ -774,7 +775,7 @@ engine{
                     }
                     else { 
                         if ( num != -1 ){
-                            c->register_counter = normal_func(c ,c->select->sel[i]  ) ; 
+                            c->register_counter = normal_func(c ,c->select->sel[i]  , false ) ; 
                             c->register_counter++ ; 
                         }
                     }
@@ -793,10 +794,23 @@ engine{
                 c->register_counter = c->register_counter - extra_depletion_record ; 
             }
             if (c->select->orderby_counter == 0 ){
+                if (c->select->select_agg != true ){
                 emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
+                }
             }
             c->typ[loop_addr].p2 = c->count ; 
             emit(c , next_cursor , cursor , loop_addr   , -1 , NULL ) ;
+            if (c->select->orderby_counter == 0 ){
+                if (c->select->select_agg != true ){
+                    for ( int z = 0 ; z < c->select->col_counter ;z++ ){
+                        int extra_stupid = 0 ; 
+                        if (c->select->sel[z]->acc_reg != -1 ){
+                            emit(c ,aggregate_final , c->select->sel[z]->acc_reg , -1 , c->register_start + z , NULL  ) ;
+                        }
+                    }
+                emit(c , result_row ,c->register_start , c->register_start + c->register_counter , -1  , -1 , NULL ) ; 
+                }
+            }
             if (c->select->orderby_counter > 0 ) {
                 emit(c , orderby_sort , cursor_for_sort_orderby , -1 , -1 , NULL ) ; 
                 int orderby_sort_addr = c->count ; 
@@ -812,7 +826,7 @@ engine{
 
         else {
             int loop_addr = c->count ; 
-            emit(c , eq_op , where_func(c ,c->select->where ) , -1  , MAX , "BINARY" ) ; 
+            emit(c , eq_op , where_func(c ,c->select->where , false  ) , -1  , MAX , "BINARY" ) ; 
             int cursor_for_sort_orderby  = 0 ;
             int cursor_sort = c->sorter_cursor++ ; 
             emit(c , sorter_open , cursor_sort,c->select->groupby_counter , -1 , { col_name_to_int_main(c->select->groupby[sel_uni_counter]->col_name   , c->select)} ) ; 
@@ -872,7 +886,13 @@ engine{
                 emit(c , copy_op , MAX - 2  , MAX -1  , -1 , NULL ) ; 
                 int having   = 0 ; 
                 if ( c->select->having != NULL  ){
-                    having = where_func(c ,c->select->having  ) ; 
+                    if (c->select->having->acc_reg != -1 ){
+                        having = where_func(c ,c->select->having  , true   ) ; 
+                    }
+                    else { 
+                        having = where_func(c ,c->select->having  , false    ) ;    
+                    }
+
                 }
                 emit(c , eq_op , having , -1 ,  MAX , NULL  ) ; 
                 int gb_hav = c->count ; 
@@ -1119,7 +1139,7 @@ engine{
                     if (c->select->orderby[i]->operator != NULL ){
                         int temp = c->register_counter ; 
                         c->register_counter = cur ; 
-                        c->register_counter = normal_func(c ,c->select->orderby[i]  ) ; 
+                        c->register_counter = normal_func(c ,c->select->orderby[i]  , false  ) ; 
                         c->register_counter++ ; 
                         c->register_counter = temp ; 
                         cur++ ; 
@@ -1138,7 +1158,7 @@ engine{
                 if (c->select->groupby[i]->operator != NULL ){
                     int temp = c->register_counter ; 
                     c->register_counter = cur ; 
-                    c->register_counter = normal_func(c ,c->select->sel[i]  ) ; 
+                    c->register_counter = normal_func(c ,c->select->sel[i]  , false  ) ; 
                     c->register_counter++ ; 
                     c->register_counter = temp ; 
                 }
@@ -1166,7 +1186,7 @@ engine{
             emit(c, column_op, cursor, num, reg, NULL);
         }
         else if (node->left != NULL) {      
-            c->register_counter = normal_func(c ,c->select->sel[i]  ) ; 
+            c->register_counter = normal_func(c ,c->select->sel[i]  , false ) ; 
             c->register_counter++ ;        
            reg = func(c, node->left, cursor);
         }
@@ -1177,17 +1197,17 @@ engine{
     }
 
 
-    int where_func(compiler *c , select_select_info * node ){
+    int where_func(compiler *c , select_select_info * node , bool req ){
         int first_reg = c->register_counter ; 
-        int ans = func(c , node) ; 
+        int ans = func(c , node , req ) ; 
         emit(c , integer_op , 0 , MAX , -1 , NULL ) ; 
         c->register_counter = first_reg ; 
         return ans ;  
     }
 
-    int normal_func(compiler *c , select_select_info * node ){
+    int normal_func(compiler *c , select_select_info * node , bool req  ){
         int first_reg = c->register_counter ; 
-        int ans = func(c , node) ; 
+        int ans = func(c , node , req ) ; 
         c->register_counter = first_reg ; 
         return ans ;  
     }
@@ -1247,6 +1267,7 @@ engine{
                  operator = is_not_null ; 
             }
             else if (strcmp(node->operator , "GROUP_CONCAT")== 0 || strcmp(node->operator , "MAX") == 0   || strcmp(node->operator , "MIN") == 0 || strcmp(node->operator , "COUNT") == 0 || strcmp(node->operator , "AVG") == 0 || strcmp(node->operator , "SUM") == 0     ){
+                c->select->select_agg = true ; 
                 if (node->acc_reg == -1 ){
                     node->acc_reg = c->register_counter++   ; 
                     emit(c ,aggregate_init ,node->acc_reg , -1 , -1 , NULL  ) ; 
@@ -1455,6 +1476,8 @@ engine{
 
         return reg ; 
     }
+
+
     int  group_by_func(compiler *c , select_select_info * node  , bool final ){
         int reg = c->register_counter    ; 
         int operator ; 

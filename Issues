@@ -9,4 +9,4 @@
 5. In the parser in the comp_2 the on is not being accountable like the on needs to be a seperate node compilation needs it 
 6. In the parser the issue is in the join the loops goes till we dont reach to the where or anything else like that we pretty 
    much need to like add the breaking point which is , as well and as few of the edgecases were added for the , so it pretty much 
-   still work that way so yeah need to do 
+   still work that way so yeah need to do , not that hard just need to like remove the , handling ( not the braces one ) 

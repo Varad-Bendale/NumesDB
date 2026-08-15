@@ -77,13 +77,24 @@ engine{
         int acc_reg ; 
     }
 
-    typedef struct select_from_info{
-        char * table_name ; 
+    typedef struct select_join_info{
+        char * table_or_col_name ; 
+        float *float_val ; 
+        unsigned char * blob ; 
+        int * num_value ; 
+        char * char_value ; 
         char * operator ; 
         char * as  ; 
-        select_from_info *left ; 
-        select_from_info * right ; 
+        char *extra_table_or_col_name ; 
+        select_join_info *left ; 
+        select_join_info * right ; 
         select_select_info * on ; 
+    }
+
+    typedef struct select_from_info{
+        char * table_name ; 
+        select_join_info * join ; 
+        char * as  ; 
     }
 
     typedef struct extra_info_ob{
@@ -112,6 +123,7 @@ engine{
         bool select_agg ; 
         select_from_info *from[300] ; 
         int tables_counter ; 
+        tables_list * tab ; 
         select_from_info *where ; 
         select_select_info *groupby[300] ;
         int groupby_counter ; 
@@ -121,6 +133,7 @@ engine{
         select_from_info *having ; 
         select_ob_info *orderby[300] ; 
         int orderby_counter ; 
+
     }
 
     typedef struct sql_master {
@@ -211,6 +224,50 @@ engine{
     }
 
 
+    select_join_info *join_expre(select_join_info *ans ,    compiler *c , tree * temp){
+        int i = 0 ; 
+        while (i < temp->num){
+            if (strcmp(temp->children[i]->comp , "+")== 0 || strcmp(temp->children[i]->comp, "-")== 0 || strcmp(temp->children[i]->comp, "*")== 0 || strcmp(temp->children[i]->comp, "/")== 0 || strcmp(temp->children[i]->comp , "=")== 0 || strcmp(temp->children[i]->comp, "!=")== 0 || strcmp(temp->children[i]->comp , ">")== 0 || strcmp(temp->children[i]->comp , ">=")== 0 || strcmp(temp->children[i]->comp , "<")== 0 || strcmp(temp->children[i]->comp, "<=")== 0 || strcmp(temp->children[i]->comp , "GROUP_CONCAT")== 0 || strcmp(temp->children[i]->comp , "MAX") == 0 || strcmp(temp->children[i]->comp , "MIN") == 0 || strcmp(temp->children[i]->comp , "COUNT") == 0 || strcmp(temp->children[i]->comp, "AVG") == 0 || strcmp(temp->children[i]->comp , "SUM") == 0){
+                   ans->operator = temp->children[i]->comp;
+                if (ans->left == NULL ){
+                    ans->left = malloc(sizeof(select_join_info))
+                    expre(ans->left, c, temp->children[i]);
+                }
+                else {
+                    ans->right = malloc(sizeof(select_join_info))
+                    expre(ans->right, c, temp->children[i]);
+                }
+            }
+            else if (col_name_to_int_main(temp->children[i]->comp, c->select) != -1 ){
+                if (ans->table_or_col_name != NULL ){
+                     ans->extra_table_or_col_name = temp->children[i]->comp ;
+                }
+                else { 
+                    ans->table_or_col_name = temp->children[i]->comp ;
+                 }
+             }
+            else { 
+                int check = data_type_check(temp->children[i]->comp);
+                if (check == 0){
+                    ans->num_value = atoi(temp->children[i]->comp);
+                }
+                else if (check == 1){
+                    ans->float_val = (float)atof(temp->children[i]->comp);
+                }
+                else if (check == 2){
+                    ans->blob = temp->children[i]->comp ;
+                }
+                else {
+                    ans->char_value = temp->children[i]->comp ;
+                }
+            }
+        i++;
+        }
+        return ans ; 
+    }
+
+
+
     select_ob_info *expre_order_by(select_ob_info *ans ,    compiler *c , tree * temp){
         int i = 0 ; 
         while (i < temp->num){
@@ -255,35 +312,38 @@ engine{
 
 
     void from_parser_to_struct(compiler * c  , tree * select ){
-        select_from_info **from  = c->select.from ; 
+        select_from_info **from  = c->select->from ; 
         int temp = 0   ; 
         while (temp < select->num && strcmp(select->children[temp]->comp , "FROM") != 0 ){
             temp++ ; 
         }
         select = select->children[temp] ; 
         int i = 0 ; 
-        int num = 0 ; 
+        c->select->table_counter = 0 ; 
             while (  i < select->num && strcmp(select->children[i]->comp , "WHERE") != 0 ){
-                if (strcmp(select->children[i]->comp , "ON") != 0 ){
-                    from[num] = malloc(sizeof(select_from_info)) ; 
-                    from[num]->table_name = select->children[i]->comp ; 
-                    from[num]->operator = NULL ; 
-                    from[num]->left = NULL ; 
-                    from[num]->right = NULL ; 
-                    if (select->as != NULL ){
-                        from[num]->as = select->as ; 
+                if (strcmp(select->children[i]->comp , "JOIN") == 0 || strcmp(select->children[i]->comp , "INNER JOIN") == 0 || strcmp(select->children[i]->comp , "LEFT JOIN") == 0  || strcmp(select->children[i]->comp , "RIGHT JOIN") == 0  || strcmp(select->children[i]->comp , "CROSS JOIN") == 0  || strcmp(select->children[i]->comp , "FULL OUTER JOIN") == 0  ){
+                    int num = c->select->tables_counter - 1  ; 
+                    select_join_info * join = c->select->children[num]->join ; 
+                    if (elect->children[i]->children[0] != NULL) { 
+                        join->table_or_col_name = select->children[i]->children[0]->comp ; 
+                        if (select->children[i]->children[0]->as != NULL ){
+                            join->as = select->children[i]->children[0]->as ; 
+                        }
                     }
-                    num++ ; 
+                    if (select->children[i]->children[1] != NULL ){
+                        join->left = malloc(sizeof(select_join_info)) ; 
+                        join->left = join_expre( join->left  , c ,select->children[i]->children[1]  ) ; 
+                    }
                 }
                 else { 
-                    select_select_info * tempo = malloc(sizeof(select_select_info)) ; 
-                    tempo = expre(tempo  , c , select->children[i]->children[0]  ) ; 
-                    if (select->children[i]->as != NULL ){
-                        tempo->as = select->children[i]->as; 
+                    from[c->select->tables_counter] = malloc(sizeof(select_from_info)) ; 
+                    from[c->select->tables_counter]->table_name = select->children[i]->comp ; 
+                    if (select->as != NULL ){
+                        from[c->select->tables_counter]->as = select->as ; 
                     }
-                   from[num]->on =   tempo  ; 
-                    num++ ; 
+                    c->select->tables_counter++ ; 
                 }
+
                 i++ ; 
             }
     }
@@ -582,6 +642,7 @@ engine{
         }
     }
 
+
     int col_name_to_int( char * column_name , table * t ){
         for (int i = 0 ; i < t->num_of_columns ; i++ ){
            if ( strcmp(t->col[i].name , column_name ) == 0 ){
@@ -591,22 +652,20 @@ engine{
         return -1  ; 
     }
 
-
-
     int col_name_to_int_main( char * column_name , select_info *sf  ){
         int num = -1 ; 
-        for ( int i = 0 ; i < sf->tables_counter ; i++ ){
+        for ( int i = 0 ; i < sf->tab->num_of_tables ; i++ ){
             int number = col_name_to_int(column_name ,sf->from[i]->table_name ) ; 
             if ( number  != -1  ){
                 if (num != -1 ){
-                    return -1 ; 
+                    return -1 ;  
                 }
                 else {
                     num = number ; 
                 }
             }  
         }
-        return num ;  
+        return num ; 
     }
 
     typedef struct tables_list{
@@ -622,6 +681,7 @@ engine{
         }
         return NULL ; 
     }
+
 
     typedef struct orderby_key_cols{
         int  reg_num ; 
@@ -1007,7 +1067,6 @@ engine{
         return ans ; 
     }
 
-
     void get_all_select_stuff(compiler * c ){
         int i = 0 ; 
         while ( i < c->select->col_counter ){
@@ -1081,8 +1140,6 @@ engine{
 
         return ; 
     }
-
-
 
     void get_the_data_tree(select_select_info * temp , select_info *  sf ){
         int num = col_name_to_int_main( temp->col_name , sf  )  ; 
@@ -1195,8 +1252,6 @@ engine{
         }
         emit(c , aggregate_step , node->acc_reg , reg , NULL , operation) ; 
     }
-
-
     int where_func(compiler *c , select_select_info * node , bool req ){
         int first_reg = c->register_counter ; 
         int ans = func(c , node , req ) ; 

@@ -116,14 +116,6 @@ Tree_def* make_leaf(char* value , int row , int col ) {
 }
 
 
-
-
-
-
-
-
-
-
 int priority(char *string){
     if ( strcmp("CASE" , string ) == 0 ||  strcmp("ON" , string ) == 0   ){
         return 1 ; 
@@ -154,11 +146,6 @@ int priority(char *string){
     }
     return 0  ; 
 }
-
-
-
-
-
 
 
 tree* expression(char ***buf , tree * node , int check , int i , int j  , int end_row , int end_col  ){
@@ -1354,7 +1341,6 @@ tree *comp_1(char*** buf , tree * node  ,  int i , int j , int end_row , int end
 
 
 
-
 tree *comp_2(char*** buf , tree * node  ,  int i , int j , int end_row , int end_col ){
     int start_row = i ; 
     int start_col = j ; 
@@ -1368,7 +1354,6 @@ tree *comp_2(char*** buf , tree * node  ,  int i , int j , int end_row , int end
             if (  strcmp(buf[i][j] ,  "WHERE"  ) == 0  ) {
                 return start ; 
             }
-
             else if (  strcmp(buf[i][j], "JOIN") == 0  || 
                     ( j+1 <= end_col && strcmp(buf[i][j], "INNER") == 0 && strcmp(buf[i][j+1], "JOIN") == 0  ) || 
                     (j+1 <= end_col && strcmp(buf[i][j], "LEFT") == 0 && strcmp(buf[i][j+1], "JOIN") == 0  ) ||  
@@ -1653,7 +1638,29 @@ tree *comp_2(char*** buf , tree * node  ,  int i , int j , int end_row , int end
                                                     }
                                                 }
                                                 else {
-                                                    temp_word->children[temp_word->num++] = make_leaf( buf[i][j]  , i , j ) ; 
+                                                    tree * leaf_node = make_leaf( buf[i][j]  , i , j ) ;
+                                                    if ( ( j+1 <= end_col && buf[i][j+1] != NULL && strcmp(buf[i][j+1], "AS") == 0 ) ||
+                                                         ( buf[i][j+1] == NULL && i+1 <= end_row && buf[i+1][0] != NULL && strcmp(buf[i+1][0], "AS") == 0 ) ){
+                                                        if (buf[i][j+1] != NULL) {
+                                                            j++ ;
+                                                        }
+                                                        else {
+                                                            i++ ;
+                                                            j = 0 ;
+                                                        }
+                                                        if ( ( j+1 <= end_col && buf[i][j+1] != NULL ) ||
+                                                             ( buf[i][j+1] == NULL && i+1 <= end_row && buf[i+1][0] != NULL ) ){
+                                                            if (buf[i][j+1] != NULL) {
+                                                                j++ ;
+                                                            }
+                                                            else {
+                                                                i++ ;
+                                                                j = 0 ;
+                                                            }
+                                                            leaf_node->as = strdup( buf[i][j] ) ;
+                                                        }
+                                                    }
+                                                    temp_word->children[temp_word->num++] = leaf_node ;
                                                 }
                                             }
                                             else { 
@@ -1739,7 +1746,29 @@ tree *comp_2(char*** buf , tree * node  ,  int i , int j , int end_row , int end
                                             }
                                         }
                                         else {
-                                            temp_word->children[temp_word->num++] = make_leaf( buf[i][j]  , i , j ) ; 
+                                            tree * leaf_node = make_leaf( buf[i][j]  , i , j ) ;
+                                            if ( ( j+1 <= end_col && buf[i][j+1] != NULL && strcmp(buf[i][j+1], "AS") == 0 ) ||
+                                                 ( buf[i][j+1] == NULL && i+1 <= end_row && buf[i+1][0] != NULL && strcmp(buf[i+1][0], "AS") == 0 ) ){
+                                                if (buf[i][j+1] != NULL) {
+                                                    j++ ;
+                                                }
+                                                else {
+                                                    i++ ;
+                                                    j = 0 ;
+                                                }
+                                                if ( ( j+1 <= end_col && buf[i][j+1] != NULL ) ||
+                                                     ( buf[i][j+1] == NULL && i+1 <= end_row && buf[i+1][0] != NULL ) ){
+                                                    if (buf[i][j+1] != NULL) {
+                                                        j++ ;
+                                                    }
+                                                    else {
+                                                        i++ ;
+                                                        j = 0 ;
+                                                    }
+                                                    leaf_node->as = strdup( buf[i][j] ) ;
+                                                }
+                                            }
+                                            temp_word->children[temp_word->num++] = leaf_node ;
                                         }
                                     }
                                     else { 
@@ -2034,7 +2063,29 @@ tree *comp_2(char*** buf , tree * node  ,  int i , int j , int end_row , int end
                                             }
                                         }
                                         else {
-                                            temp->children[temp->num++] = make_leaf( buf[i][j]  , i , j ) ; 
+                                            tree * leaf_node = make_leaf( buf[i][j]  , i , j ) ;
+                                            if ( ( j+1 <= end_col && buf[i][j+1] != NULL && strcmp(buf[i][j+1], "AS") == 0 ) ||
+                                                 ( buf[i][j+1] == NULL && i+1 <= end_row && buf[i+1][0] != NULL && strcmp(buf[i+1][0], "AS") == 0 ) ){
+                                                if (buf[i][j+1] != NULL) {
+                                                    j++ ;
+                                                }
+                                                else {
+                                                    i++ ;
+                                                    j = 0 ;
+                                                }
+                                                if ( ( j+1 <= end_col && buf[i][j+1] != NULL ) ||
+                                                     ( buf[i][j+1] == NULL && i+1 <= end_row && buf[i+1][0] != NULL ) ){
+                                                    if (buf[i][j+1] != NULL) {
+                                                        j++ ;
+                                                    }
+                                                    else {
+                                                        i++ ;
+                                                        j = 0 ;
+                                                    }
+                                                    leaf_node->as = strdup( buf[i][j] ) ;
+                                                }
+                                            }
+                                            temp->children[temp->num++] = leaf_node ;
                                         }
                                     }
                                     else { 
@@ -2112,7 +2163,29 @@ tree *comp_2(char*** buf , tree * node  ,  int i , int j , int end_row , int end
                                     }
                                 }
                                 else {
-                                       temp->children[temp->num++] = make_leaf( buf[i][j]  , i , j ) ; 
+                                       tree * leaf_node = make_leaf( buf[i][j]  , i , j ) ;
+                                       if ( ( j+1 <= end_col && buf[i][j+1] != NULL && strcmp(buf[i][j+1], "AS") == 0 ) ||
+                                            ( buf[i][j+1] == NULL && i+1 <= end_row && buf[i+1][0] != NULL && strcmp(buf[i+1][0], "AS") == 0 ) ){
+                                           if (buf[i][j+1] != NULL) {
+                                               j++ ;
+                                           }
+                                           else {
+                                               i++ ;
+                                               j = 0 ;
+                                           }
+                                           if ( ( j+1 <= end_col && buf[i][j+1] != NULL ) ||
+                                                ( buf[i][j+1] == NULL && i+1 <= end_row && buf[i+1][0] != NULL ) ){
+                                               if (buf[i][j+1] != NULL) {
+                                                   j++ ;
+                                               }
+                                               else {
+                                                   i++ ;
+                                                   j = 0 ;
+                                               }
+                                               leaf_node->as = strdup( buf[i][j] ) ;
+                                           }
+                                       }
+                                       temp->children[temp->num++] = leaf_node ;
                                 }
                             }
                             else { 
@@ -2143,8 +2216,6 @@ tree *comp_2(char*** buf , tree * node  ,  int i , int j , int end_row , int end
     return start  ; 
 
 }
-
-
 
 
 
@@ -2606,7 +2677,7 @@ tree *comp_3(char*** buf , tree * node  ,  int i , int j , int end_row , int end
 
 
 
-                                    while ( strcmp(buf[i][j], ")") != 0 &&  strcmp(buf[i][j], ";") != 0 &&  strcmp(buf[i][j], "ORDER") != 0 && strcmp(buf[i][j], "FETCH") != 0  &&  strcmp(buf[i][j], "LIMIT") != 0 &&strcmp(buf[i][j], "OFFSET") != 0 && strcmp(buf[i][j], "UNION") != 0 && strcmp(buf[i][j], "INTERSECT") != 0 && strcmp(buf[i][j], "EXCEPT") != 0 ){
+                                    while ( strcmp(buf[i][j], ")") != 0 &&  strcmp(buf[i][j], ";") != 0 && strcmp(buf[i][j], "NULLS") != 0 &&  strcmp(buf[i][j], "ASC") != 0 && strcmp(buf[i][j], "DSC") != 0 && strcmp(buf[i][j], ",") != 0 &&  strcmp(buf[i][j], "FIRST") != 0 && strcmp(buf[i][j], "LAST") != 0 &&   strcmp(buf[i][j], "ORDER") != 0 && strcmp(buf[i][j], "FETCH") != 0  &&  strcmp(buf[i][j], "LIMIT") != 0 &&strcmp(buf[i][j], "OFFSET") != 0 && strcmp(buf[i][j], "UNION") != 0 && strcmp(buf[i][j], "INTERSECT") != 0 && strcmp(buf[i][j], "EXCEPT") != 0 ){
                                             if ( if_function( buf[i][j] ) == true ){
                                                 int start_row = i ; 
                                                 int start_col = j ; 
@@ -2779,7 +2850,7 @@ tree *comp_3(char*** buf , tree * node  ,  int i , int j , int end_row , int end
                                                             }
                                                         }
 
-                                                        if ( strcmp(buf[i][j], ";") == 0 || strcmp(buf[i][j], "ON") == 0 || strcmp(buf[i][j], "OFFSET") == 0 || strcmp(buf[i][j], "LIMIT") == 0 || strcmp(buf[i][j], "ORDER") == 0 || strcmp(buf[i][j], "HAVING") == 0 || strcmp(buf[i][j], "GROUP") == 0 || strcmp(buf[i][j], "WHERE") == 0 || strcmp(buf[i][j], "FROM") == 0 ){
+                                                        if ( strcmp(buf[i][j], ";") == 0 || strcmp(buf[i][j], "NULLS") != 0 ||  strcmp(buf[i][j], "ASC") != 0 ||  strcmp(buf[i][j], "DSC") != 0 ||  strcmp(buf[i][j], ",") != 0 ||   strcmp(buf[i][j], "FIRST") != 0 ||  strcmp(buf[i][j], "LAST") != 0 ||  strcmp(buf[i][j], "ON") == 0 || strcmp(buf[i][j], "OFFSET") == 0 || strcmp(buf[i][j], "LIMIT") == 0 || strcmp(buf[i][j], "ORDER") == 0 || strcmp(buf[i][j], "HAVING") == 0 || strcmp(buf[i][j], "GROUP") == 0 || strcmp(buf[i][j], "WHERE") == 0 || strcmp(buf[i][j], "FROM") == 0 ){
                                                             break ;
                                                         }
 
@@ -2949,7 +3020,7 @@ tree *comp_3(char*** buf , tree * node  ,  int i , int j , int end_row , int end
                                                                 dir = 1 ; 
                                                                 }
                                                                 if (  strcmp(buf[i][j]  , "NULLS"  ) == 0 ||  strcmp(buf[i][j]  , "LAST"  ) == 0  ||  strcmp(buf[i][j]  , "FIRST"  ) == 0 ){
-                                                                    if ( first == 0 ){
+                                                                    if ( first == 0  && strcmp(buf[i][j]  , "NULLS"  ) == 0  ){
                                                                         cat = createNode(buf[i][j] ); 
                                                                         startcat = cat ; 
                                                                         first = 1 ; 

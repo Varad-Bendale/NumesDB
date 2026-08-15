@@ -73,6 +73,8 @@ Numes_db/
 │   ├── select_parser.c        # Tokenizing + parsing SELECT queries into AST
 │   └── Parser.txt             # Parser reference, design notes
 │
+├── Issues                     # Current issues in the code 
+│
 └── Engine/
     ├── Engine.c               # Converts queries into bytecode
     ├── bytecode.c             # All bytecode instruction definitions

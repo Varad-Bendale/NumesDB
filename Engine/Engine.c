@@ -673,6 +673,8 @@ engine{
         int num_of_tables ; 
     }
 
+
+
     table * lookup_table( tables_list * tab , char * table_name ){
         for ( int i = 0 ; i < tab->num_of_tables ; i++ ){
            if ( strcmp( tab[i]->name  , table_name  ) == 0 ) { 
@@ -790,7 +792,7 @@ engine{
         }
         return buffer ; 
     }
-
+// see where you need ot begin is the equal things in the join can be done easily byt the hash but for the rest of them the thing like suppose jsut read this prompt if you want in the nothing ( bhuiit) claude i cant really explain it so yeah work from here 
     void compile_select (compiler *c ){
         emit(c , begin_op  , -1 , -1 , -1 , NULL ) ; 
         int cursor = c->cursor_num++ ; 

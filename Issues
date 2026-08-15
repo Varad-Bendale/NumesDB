@@ -1,15 +1,25 @@
 1. Having function calling is completly broken need to check about the aggregate functions which are there and when to
    take the agg_final and not 
+
 2. The flow of the table picking is still quite incomplete please have a look at it like for example if there is no 
     table name is given we just do it directly cuase its just directly the first one but if the table name is given 
     we pretty much need to get that table name and check it out so yeah 
+
 3. same is the issue for the stuff we define it with as we pretty much need to add the tables or the columns in the list 
+
 4. In the bytecode the struct which are made the calling of the attrivutes are a hell lot of wrong need to fix it out
     . needs to be replaced with the ->
+
 5. In the parser in the comp_2 the on is not being accountable like the on needs to be a seperate node compilation needs it 
+
 6. In the parser the issue is in the join the loops goes till we dont reach to the where or anything else like that we pretty 
    much need to like add the breaking point which is , as well and as few of the edgecases were added for the , so it pretty much 
    still work that way so yeah need to do , not that hard just need to like remove the , handling ( not the braces one ) 
+
 7. In the parser the comp_2 the problem is na the as clause is not getting correct for the normal ones like for the normal tables 
    its not working or written code itself need to write it for normal thing as well ( its everywhere ) 
    (update) i fixed the comp_2 issue in here but the rest everywhere the issue persists 
+
+8. The issue is not the issue just a small optimisation  just in the when i am do the expre or any of the varient the while
+   passing the struct first time the same of the struct is been passed where the functions is giving the value again so 
+   kind of not that cool 

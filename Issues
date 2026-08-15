@@ -12,3 +12,4 @@
    still work that way so yeah need to do , not that hard just need to like remove the , handling ( not the braces one ) 
 7. In the parser the comp_2 the problem is na the as clause is not getting correct for the normal ones like for the normal tables 
    its not working or written code itself need to write it for normal thing as well ( its everywhere ) 
+   (update) i fixed the comp_2 issue in here but the rest everywhere the issue persists 

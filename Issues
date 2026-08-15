@@ -6,3 +6,4 @@
 3. same is the issue for the stuff we define it with as we pretty much need to add the tables or the columns in the list 
 4. In the bytecode the struct which are made the calling of the attrivutes are a hell lot of wrong need to fix it out
     . needs to be replaced with the ->
+5. In the parser in the comp_2 the on is not being accountable like the on needs to be a seperate node compilation needs it 

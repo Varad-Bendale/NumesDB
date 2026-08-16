@@ -23,3 +23,6 @@
 8. The issue is not the issue just a small optimisation  just in the when i am do the expre or any of the varient the while
    passing the struct first time the same of the struct is been passed where the functions is giving the value again so 
    kind of not that cool 
+
+9. Where clause optimised engine is remaining and also the orderby and the groupby the plain sorting techniques is kind of
+   pissing me off so yeah maybe something like that is needed as well 

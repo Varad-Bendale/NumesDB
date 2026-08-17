@@ -34,6 +34,23 @@ bytecode {
         open_read_op
     }
 
+    typedef struct data_bin{
+        char * compare ; 
+        char * primary_key  ; 
+    }
+
+    typedef struct bins{
+        data_bin data[300] ; 
+        int row_num ; 
+        table * tbl ; 
+        int num_of_entires ; 
+    }
+
+    typedef struct hash_bins_str{
+        bins bn[300] ;
+        int num_of_bins ; 
+    }
+
     typedef enum collation { 
         BINARY = 1 ,
         NOCASE,
@@ -209,6 +226,7 @@ bytecode {
         int reg_start ; 
         int reg_end ; 
         int reg_mode ; 
+        hash_bins_str * hash_bins ; 
         aggregate agg[300] ; 
         btree btr[300] ; 
         table *db ; 
@@ -790,9 +808,6 @@ bytecode {
                 return result ; 
 
     }
-
-
-
     void *pager_get_page(Pager *pager, uint32_t page_num) {
         void *buf = malloc(PAGE_SIZE);
         fseek(pager->file, page_num * PAGE_SIZE, SEEK_SET);
@@ -2623,7 +2638,7 @@ bytecode {
                             reg cell_key = get_key_from_cell(cell);
                             if (campare(byt->regis[op->p3], cell_key, cur->data_type) == 0) {
                                 id = i;
-                                break;
+                                break ;
                             }
                         }
                         children = get_child_pointer(byt->pager , children  ,id )  ; 
@@ -3337,6 +3352,11 @@ bytecode {
             }
             
     }
+
+
+    case push_to_hash:
+        
+        break  ; 
 
 
 

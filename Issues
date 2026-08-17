@@ -26,3 +26,7 @@
 
 9. Where clause optimised engine is remaining and also the orderby and the groupby the plain sorting techniques is kind of
    pissing me off so yeah maybe something like that is needed as well 
+
+10. About the lookup_table it requires the name of the table for searching but here if you see in the open_read_op we are giving 
+    the page number of the thing so its quite broken need to fix in like the join and the in the compile_select there i am right 
+    now putting some random terms but yeah do fix them in future 

@@ -10,6 +10,33 @@ engine{
         int p3 ;
         void * p4  ;
     }
+                    
+    /* typedef struct column_def {
+        char * name;
+        data_type type;
+        bool is_primary_key;
+    } column_def;
+
+    typedef struct sql_master {
+        char * table_name;
+        int page_num;
+        column_def * columns;   
+        int num_columns;
+    } sql_master; 
+     
+    typedef struct sql_master_list {
+        sql_master * entries[300];  
+        int num_tables;
+    } sql_master_list;
+
+    typedef struct dab {
+        pager * pager;             
+        sql_master_list * master;   
+        char * filename;           
+    } dab;
+    dab * db */
+
+    // what you need to do is just take up the stuff annd make the bytecode of it simple need to like get the the hash cursor and then the register where the stuff is prsemt and then one of the register which liek holds all the stuff in it the primary keys and all the info liek and then and then push it to the bytecode and then it process it and boom ohh god i reallty didnt wanted it to get extended but its alright i guess 
 
     typedef struct compiler{
         type * typ ; 
@@ -139,8 +166,10 @@ engine{
         int * join_select_unique_table[300] ; 
         int * join_select_hash_unique_table[300] ; 
         int join_table_counter  ; 
+        int join_hash_counter ; 
 
     }
+
 
     typedef struct sql_master {
         uint32_t root_page_num ; 
@@ -855,14 +884,17 @@ engine{
 
 
     void join_equal_clause( compiler * c  , select_select_info * from ){
+        hash_bins_str * hash_bins ; 
+        int hash_cursor = c->join_hash_counter++ ; 
         c->join_table_counter = tables_and_thier_cursor(c , from ) ; 
         for ( int i = 0 ; i < num  ; i++ ){
             emit(c , open_read_op , c->cursor_num + i , /*i(need to fix it bruh )*/ ,  -1 , -1 , NULL    ) ; 
         }
         int loop_addr_hb = c->count ; 
+        if (from->left != NULL ){
+           int left_reg =  join_func(c , from->left) ; 
 
-
-
+        }
         for ( int i = 0 ; i < num  ; i++ ){
             if (i == num -1 ){
                 emit(c , next_cursor , c->cursor_num + i  , loop_addr_hb   , -1 , NULL ) ; 
@@ -2406,3 +2438,4 @@ engine{
 
 
 //  see man in the final of the aggregate functions we pretty much need to find if we have reached the state of the or like it is like the end row so like we need to know that first and on basis we literlly need to upsate out the entire odf the code so that it gets whats the issue and do the stuff cool ? 
+

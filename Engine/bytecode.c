@@ -34,22 +34,6 @@ bytecode {
         open_read_op
     }
 
-    typedef struct data_bin{
-        char * compare ; 
-        char * primary_key  ; 
-    }
-
-    typedef struct bins{
-        data_bin data[300] ; 
-        int row_num ; 
-        table * tbl ; 
-        int num_of_entires ; 
-    }
-
-    typedef struct hash_bins_str{
-        bins bn[300] ;
-        int num_of_bins ; 
-    }
 
     typedef enum collation { 
         BINARY = 1 ,
@@ -3354,9 +3338,33 @@ bytecode {
     }
 
 
+    typedef struct data_bin{
+        char * compare ; 
+        char * primary_key  ; 
+    }
+
+    typedef struct bins{
+        data_bin data[300] ; 
+        int row_num ; 
+        table * tbl ; 
+        int num_of_entires ; 
+    }
+
+    typedef struct hash_bins_str{
+        bins bn[300] ;
+        int num_of_bins ; 
+    }
+
+
+
+
     case push_to_hash:
         
         break  ; 
+
+    case get_the_primary_key : 
+
+        break ; 
 
 
 

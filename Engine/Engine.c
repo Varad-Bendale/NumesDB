@@ -19,6 +19,7 @@ engine{
 
     typedef struct sql_master {
         char * table_name;
+        int table_num ; 
         int page_num;
         column_def * columns;   
         int num_columns;
@@ -35,6 +36,7 @@ engine{
         char * filename;           
     } dab;
     dab * db */
+
 
     // what you need to do is just take up the stuff annd make the bytecode of it simple need to like get the the hash cursor and then the register where the stuff is prsemt and then one of the register which liek holds all the stuff in it the primary keys and all the info liek and then and then push it to the bytecode and then it process it and boom ohh god i reallty didnt wanted it to get extended but its alright i guess 
 
@@ -169,6 +171,9 @@ engine{
         int join_hash_counter ; 
 
     }
+
+
+
 
 
     typedef struct sql_master {
@@ -714,6 +719,10 @@ engine{
         return -1 ;  
     }
 
+    char * table_name_from_num(tables_list * tab , int num ){
+        return tab[i]->tables->name  ; 
+    }
+
     table * lookup_table( tables_list * tab , char * table_name ){
         for ( int i = 0 ; i < tab->tables->num_of_tables ; i++ ){
            if ( strcmp( tab[i]->name  , table_name  ) == 0 ) { 
@@ -870,7 +879,7 @@ engine{
         }
     }
 
-    int tables_and_thier_cursor_num(compiler * c  , from ){
+    int tables_and_thier_cursor_num(compiler * c  , select_select_info *  from ){
         tables_and_their_hash_cursor_num(c , from ) ; 
         int counter = 0 ; 
         for (int i = 0 ; i < 300 ; i++ ){
@@ -882,17 +891,56 @@ engine{
         return counter ; 
     }
 
+    int tables_cursor_number(compiler * c  , ){
 
-    void join_equal_clause( compiler * c  , select_select_info * from ){
+    }
+
+    int blob_info_of_hash(compiler * c  , int table , int row_num , ){
+
+    }
+
+    int primary_key_offset(dab*db , int table_num ){
+        int i = 0 ; 
+        while(i< db->master->entries[table_num]->num_columns ){
+            if ( db->master->entries[table_num]->columns[i]->is_primary_key == true ){
+                return i ; 
+            }
+            i++ ; 
+        }
+        return -1 ; 
+    }
+// so where to begin from here see the thing is i take the primary key offset from here and then put like put those primary key in one of the register and the table and rthen one byt one the thing the new register you need to make and then go on do whatever today i want the hash to be done and dusted by anay cost 
+    void join_equal_clause( compiler * c  , select_select_info * from  , select_from_info * from_org ){
         hash_bins_str * hash_bins ; 
         int hash_cursor = c->join_hash_counter++ ; 
         c->join_table_counter = tables_and_thier_cursor(c , from ) ; 
         for ( int i = 0 ; i < num  ; i++ ){
             emit(c , open_read_op , c->cursor_num + i , /*i(need to fix it bruh )*/ ,  -1 , -1 , NULL    ) ; 
         }
+
         int loop_addr_hb = c->count ; 
+            int first  ; 
+            int first_table = table_name_from_num( c->tl , from_org->table_name)  ;  
+            for ( int m = 0 ; m < c->select->join_table_counter ; m++ ){
+                if (c->select->join_select_unique_table[m] == first  ){
+                    first = m ; 
+                    break ; 
+                }
+            }
+            emit(c , column_op , first , primary_key_offset( db , first_table ) , MAX - 4 , NULL) ; 
+
+            int second_table = table_name_from_num( c->tl , from_org->join->table_or_col_name) ; 
+            int second ;
+            for ( int m = 0 ; m < c->select->join_table_counter ; m++ ){
+                if (c->select->join_select_unique_table[m] == first  ){
+                    second = m ; 
+                    break ; 
+                }
+            }
+            emit(c , column_op , second , primary_key_offset( db , first_table ) , MAX - 5 , NULL) ; 
         if (from->left != NULL ){
            int left_reg =  join_func(c , from->left) ; 
+
 
         }
         for ( int i = 0 ; i < num  ; i++ ){

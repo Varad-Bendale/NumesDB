@@ -164,13 +164,10 @@ engine{
         select_from_info *having ; 
         select_ob_info *orderby[300] ; 
         int orderby_counter ; 
-        extra_registers et[300] ; 
-        int et_counter ; 
         int * join_select_unique_table[300] ; 
         int * join_select_hash_unique_table[300] ; 
         int join_table_counter  ; 
         int join_hash_counter ; 
-
     }
 
 
@@ -919,9 +916,10 @@ engine{
     char * blob_of_data(compiler * c , int pk_1 , int pk_2  , int row_num , char * table_name){
         char * blob  ; 
         int temp = 0 ; 
-        memcpy(blob + temp , pk_1 , sizeof(int))  ; 
+        int hash_bins_num = (db->master->entries[table_num(table_name)]->num_rows / 100 )* 30  ; 
+        memcpy(blob + temp , hash_bins_num , sizeof(int))  ; 
         temp += sizeof(int) ; 
-        memcpy(blob + temp , pk_2 , sizeof(int))  ; 
+        memcpy(blob + temp , pk_1 , sizeof(int))  ; 
         temp += sizeof(int) ; 
         memcpy(blob + temp , pk_2 , sizeof(int))  ; 
         temp += sizeof(int) ; 

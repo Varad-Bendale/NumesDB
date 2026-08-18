@@ -3347,7 +3347,7 @@ bytecode {
     typedef struct bins{
         data_bin data[300] ; 
         int row_num ; 
-        table * tbl ; 
+        char * tbl ; 
         int num_of_entires ; 
     }
 
@@ -3358,8 +3358,44 @@ bytecode {
 
 
     case push_to_hash:
-        memcpy(byt->hash_bins[op->p1]->bn[op->p1]->data[byt->hash_bins[op->p1]->bn[op->p1]->num_of_entires++] , byt->regis[op->p2])
+        unsigned char  * blob = op->p4 ; 
+        int temp = 0;
+        int pk_1  ; 
+        int pk_2 ; 
+        int hash_bin_nums ; 
+        int row_num ; 
+        char * table_name ; 
+
+        memcpy(hash_bins_num, blob + temp, sizeof(int));
+        temp += sizeof(int);
+
+        memcpy(pk_1, blob + temp, sizeof(int));
+        temp += sizeof(int);
+
+        memcpy(pk_2, blob + temp, sizeof(int));
+        temp += sizeof(int);
+
+        if (blob + temp != NULL) {
+            memcpy(row_num, blob + temp, sizeof(int));
+            temp += sizeof(int);
+        } 
+
+        if (blob + temp != NULL ){
+            int str_len = 0;
+            memcpy(str_len, blob + temp, sizeof(int));
+            temp += sizeof(int);
+            if (str_len > 0) {
+                table_name = (char *)malloc(str_len + 1);
+                memcpy(table_name, blob + temp, str_len);
+                table_name[str_len] = '\0';
+            }
+        }
+
+        int hbw = hash_bin_which( byt->regis[op->p2] , hash_bins_num ) ; 
+        memcpy(byt->hash_bins[op->p1]->bn[hbw]->data[byt->hash_bins[op->p1]->bn[hbw]->num_of_entires++] , byt->regis[op->p2])
         break  ; 
+
+
 
     case get_the_primary_key : 
 
@@ -3397,6 +3433,32 @@ int like_campare(reg *a , reg *b ){
 
 
 }
+
+uint32_t float_to_int_bits(float f) {
+    if (f == 0.0f) f = 0.0f; 
+    uint32_t bits;
+    memcpy(&bits, &f, sizeof(f));
+    return bits;
+}
+
+void hash_bin_which(reg check , int nume ){
+    if (check->type == int_num  ){
+        return check->val->i % nume
+    }
+    else if (check->type == real_num ){
+        return float_to_int_bits(check->val->r) % nume  ; 
+    }
+    else if (check->type == blob_num && check->type == string_num  ){
+        int i = 0 ; 
+        int num = 0 ; 
+        while ( i < check->lenght){
+            num = num + check->val->s[i] - 'a' ; 
+        }
+        return num % nume  ; 
+    }
+}
+
+
 
 
 

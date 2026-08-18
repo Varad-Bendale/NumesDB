@@ -23,6 +23,7 @@ engine{
         int page_num;
         column_def * columns;   
         int num_columns;
+        int num_rows ; 
     } sql_master; 
      
     typedef struct sql_master_list {
@@ -891,13 +892,6 @@ engine{
         return counter ; 
     }
 
-    int tables_cursor_number(compiler * c  , ){
-
-    }
-
-    int blob_info_of_hash(compiler * c  , int table , int row_num , ){
-
-    }
 
     int primary_key_offset(dab*db , int table_num ){
         int i = 0 ; 
@@ -910,9 +904,46 @@ engine{
         return -1 ; 
     }
 // so where to begin from here see the thing is i take the primary key offset from here and then put like put those primary key in one of the register and the table and rthen one byt one the thing the new register you need to make and then go on do whatever today i want the hash to be done and dusted by anay cost 
+
+    int string_length(char * table_name){
+        if (table_name == NULL ){
+            return 0 ; 
+        }
+        int i = 0 ; 
+        while ( table_name[i] != '\0'){
+            i++ ; 
+        }
+        return i ; 
+    }
+
+    char * blob_of_data(compiler * c , int pk_1 , int pk_2  , int row_num , char * table_name){
+        char * blob  ; 
+        int temp = 0 ; 
+        memcpy(blob + temp , pk_1 , sizeof(int))  ; 
+        temp += sizeof(int) ; 
+        memcpy(blob + temp , pk_2 , sizeof(int))  ; 
+        temp += sizeof(int) ; 
+        memcpy(blob + temp , pk_2 , sizeof(int))  ; 
+        temp += sizeof(int) ; 
+        if (row_num != -1 ){
+            memcpy(blob + temp , row_num , sizeof(int))  ; 
+            temp += sizeof(int) ; 
+        }
+        if (table_name != NULL ){
+            int str_len = string_length(table_name) ; 
+            memcpy(blob + temp , str_len , sizeof(int))  ; 
+            temp += sizeof(int) ; 
+            memcpy(blob+temp , table_name , str_len) ; 
+        }
+        return blob ; 
+    }
+
     void join_equal_clause( compiler * c  , select_select_info * from  , select_from_info * from_org ){
         hash_bins_str * hash_bins ; 
-        int hash_cursor = c->join_hash_counter++ ; 
+        int first_blob  ; 
+        int second_blob ; 
+        int pirmary_key_first_loc ; 
+        int primary_key_second_loc ; 
         c->join_table_counter = tables_and_thier_cursor(c , from ) ; 
         for ( int i = 0 ; i < num  ; i++ ){
             emit(c , open_read_op , c->cursor_num + i , /*i(need to fix it bruh )*/ ,  -1 , -1 , NULL    ) ; 
@@ -927,7 +958,8 @@ engine{
                     break ; 
                 }
             }
-            emit(c , column_op , first , primary_key_offset( db , first_table ) , MAX - 4 , NULL) ; 
+            pirmary_key_first_loc = c->register_counter++ ; 
+            emit(c , column_op , first , primary_key_offset( db , first_table ) , pirmary_key_first_loc , NULL) ; 
 
             int second_table = table_name_from_num( c->tl , from_org->join->table_or_col_name) ; 
             int second ;
@@ -937,12 +969,38 @@ engine{
                     break ; 
                 }
             }
-            emit(c , column_op , second , primary_key_offset( db , first_table ) , MAX - 5 , NULL) ; 
+            primary_key_second_loc = c->register_counter++ ; 
+            emit(c , column_op , second , primary_key_offset( db , first_table ) ,primary_key_second_loc , NULL) ; 
+
         if (from->left != NULL ){
-           int left_reg =  join_func(c , from->left) ; 
-
-
+            int left_reg =  join_func(c , from->left) ; 
+            int hash_cursor = c->join_hash_counter++ ; 
+            first_blob = blob_of_data( pirmary_key_first_loc, primary_key_second_loc, -1 , NULL ) ; 
         }
+        if (from->right != NULL ){
+            int right_reg =  join_func(c , from->right) ; 
+            int hash_cursor = c->join_hash_counter++ ; 
+            second_blob = blob_of_data( pirmary_key_first_loc, primary_key_second_loc, -1 , NULL ) ; 
+        }
+        if (from->col_name != NULL ){
+            int hash_cursor = c->join_hash_counter++ ; 
+            char * needed_table_char = table_thing(from->col_name) ; 
+            table * needed_table = lookup_table(needed_table_char) ; 
+            int needed_col = col_name_to_int( operand_thing(from->col_name , needed_table ) )  ; 
+            emit(c , column_op , table_num(needed_table_char) , needed_col ,  c->register_counter , NULL ) ; 
+            c->register_counter++ ; 
+            first_blob = blob_of_data(pirmary_key_first_loc , primary_key_second_loc , needed_col , needed_table_char ) ; 
+        }
+        if (from->extra_col != NULL  ){
+            int hash_cursor = c->join_hash_counter++ ; 
+            char * needed_table_char = table_thing(from->extra_col) ; 
+            table * needed_table = lookup_table(needed_table_char) ; 
+            int needed_col = col_name_to_int( operand_thing(from->extra_col , needed_table ) )  ; 
+            emit(c , column_op , table_num(needed_table_char) , needed_col ,  c->register_counter , NULL ) ; 
+            c->register_counter++ ; 
+            second_blob = blob_of_data( pirmary_key_first_loc, primary_key_second_loc , needed_col , needed_table_char ) ; 
+        }
+
         for ( int i = 0 ; i < num  ; i++ ){
             if (i == num -1 ){
                 emit(c , next_cursor , c->cursor_num + i  , loop_addr_hb   , -1 , NULL ) ; 
@@ -953,8 +1011,6 @@ engine{
         }
 
     }
-
-
     // see where you need ot begin is the equal things in the join can be done easily byt the hash but for the rest of them the thing like suppose jsut read this prompt if you want in the nothing ( bhuiit) claude i cant really explain it so yeah work from here 
     void compile_select (compiler *c ){
         emit(c , begin_op  , -1 , -1 , -1 , NULL ) ; 

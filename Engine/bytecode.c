@@ -3340,7 +3340,8 @@ bytecode {
 
     typedef struct data_bin{
         char * compare ; 
-        char * primary_key  ; 
+        char * primary_key_first  ; 
+        char * primary_key_second  ; 
     }
 
     typedef struct bins{
@@ -3356,10 +3357,8 @@ bytecode {
     }
 
 
-
-
     case push_to_hash:
-        
+        memcpy(byt->hash_bins[op->p1]->bn[op->p1]->data[byt->hash_bins[op->p1]->bn[op->p1]->num_of_entires++] , byt->regis[op->p2])
         break  ; 
 
     case get_the_primary_key : 

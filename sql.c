@@ -6379,9 +6379,11 @@ engine{
 
     typedef struct sql_master {
         char * table_name;
+        int table_num ; 
         int page_num;
         column_def * columns;   
         int num_columns;
+        int num_rows ; 
     } sql_master; 
      
     typedef struct sql_master_list {
@@ -6395,6 +6397,7 @@ engine{
         char * filename;           
     } dab;
     dab * db */
+
 
     // what you need to do is just take up the stuff annd make the bytecode of it simple need to like get the the hash cursor and then the register where the stuff is prsemt and then one of the register which liek holds all the stuff in it the primary keys and all the info liek and then and then push it to the bytecode and then it process it and boom ohh god i reallty didnt wanted it to get extended but its alright i guess 
 
@@ -6521,14 +6524,14 @@ engine{
         select_from_info *having ; 
         select_ob_info *orderby[300] ; 
         int orderby_counter ; 
-        extra_registers et[300] ; 
-        int et_counter ; 
         int * join_select_unique_table[300] ; 
         int * join_select_hash_unique_table[300] ; 
         int join_table_counter  ; 
         int join_hash_counter ; 
-
     }
+
+
+
 
 
     typedef struct sql_master {
@@ -7074,6 +7077,10 @@ engine{
         return -1 ;  
     }
 
+    char * table_name_from_num(tables_list * tab , int num ){
+        return tab[i]->tables->name  ; 
+    }
+
     table * lookup_table( tables_list * tab , char * table_name ){
         for ( int i = 0 ; i < tab->tables->num_of_tables ; i++ ){
            if ( strcmp( tab[i]->name  , table_name  ) == 0 ) { 
@@ -7230,7 +7237,7 @@ engine{
         }
     }
 
-    int tables_and_thier_cursor_num(compiler * c  , from ){
+    int tables_and_thier_cursor_num(compiler * c  , select_select_info *  from ){
         tables_and_their_hash_cursor_num(c , from ) ; 
         int counter = 0 ; 
         for (int i = 0 ; i < 300 ; i++ ){
@@ -7243,18 +7250,117 @@ engine{
     }
 
 
-    void join_equal_clause( compiler * c  , select_select_info * from ){
+    int primary_key_offset(dab*db , int table_num ){
+        int i = 0 ; 
+        while(i< db->master->entries[table_num]->num_columns ){
+            if ( db->master->entries[table_num]->columns[i]->is_primary_key == true ){
+                return i ; 
+            }
+            i++ ; 
+        }
+        return -1 ; 
+    }
+    int string_length(char * table_name){
+        if (table_name == NULL ){
+            return 0 ; 
+        }
+        int i = 0 ; 
+        while ( table_name[i] != '\0'){
+            i++ ; 
+        }
+        return i ; 
+    }
+
+    char * blob_of_data(compiler * c , int pk_1 , int pk_2  , int row_num , char * table_name){
+        char * blob  ; 
+        int temp = 0 ; 
+        int hash_bins_num = (db->master->entries[table_num(table_name)]->num_rows / 100 )* 30  ; 
+        memcpy(blob + temp , hash_bins_num , sizeof(int))  ; 
+        temp += sizeof(int) ; 
+        memcpy(blob + temp , pk_1 , sizeof(int))  ; 
+        temp += sizeof(int) ; 
+        memcpy(blob + temp , pk_2 , sizeof(int))  ; 
+        temp += sizeof(int) ; 
+        if (row_num != -1 ){
+            memcpy(blob + temp , row_num , sizeof(int))  ; 
+            temp += sizeof(int) ; 
+        }
+        if (table_name != NULL ){
+            int str_len = string_length(table_name) ; 
+            memcpy(blob + temp , str_len , sizeof(int))  ; 
+            temp += sizeof(int) ; 
+            memcpy(blob+temp , table_name , str_len) ; 
+        }
+        return blob ; 
+    }
+
+    void join_equal_clause( compiler * c  , select_select_info * from  , select_from_info * from_org ){
         hash_bins_str * hash_bins ; 
-        int hash_cursor = c->join_hash_counter++ ; 
+        int first_blob  ; 
+        int second_blob ; 
+        int pirmary_key_first_loc ; 
+        int primary_key_second_loc ; 
         c->join_table_counter = tables_and_thier_cursor(c , from ) ; 
         for ( int i = 0 ; i < num  ; i++ ){
             emit(c , open_read_op , c->cursor_num + i , /*i(need to fix it bruh )*/ ,  -1 , -1 , NULL    ) ; 
         }
-        int loop_addr_hb = c->count ; 
-        if (from->left != NULL ){
-           int left_reg =  join_func(c , from->left) ; 
 
+        int loop_addr_hb = c->count ; 
+            int first  ; 
+            int first_table = table_name_from_num( c->tl , from_org->table_name)  ;  
+            for ( int m = 0 ; m < c->select->join_table_counter ; m++ ){
+                if (c->select->join_select_unique_table[m] == first  ){
+                    first = m ; 
+                    break ; 
+                }
+            }
+            pirmary_key_first_loc = c->register_counter++ ; 
+            emit(c , column_op , first , primary_key_offset( db , first_table ) , pirmary_key_first_loc , NULL) ; 
+
+            int second_table = table_name_from_num( c->tl , from_org->join->table_or_col_name) ; 
+            int second ;
+            for ( int m = 0 ; m < c->select->join_table_counter ; m++ ){
+                if (c->select->join_select_unique_table[m] == first  ){
+                    second = m ; 
+                    break ; 
+                }
+            }
+            primary_key_second_loc = c->register_counter++ ; 
+            emit(c , column_op , second , primary_key_offset( db , first_table ) ,primary_key_second_loc , NULL) ; 
+
+        if (from->left != NULL ){
+            int left_reg =  join_func(c , from->left) ; 
+            int hash_cursor = c->join_hash_counter++ ; 
+            first_blob = blob_of_data( pirmary_key_first_loc, primary_key_second_loc, -1 , NULL ) ;
+            emit(c , push_to_hash , hash_cursor ,  left_reg , -1 , first_blob )  ; 
         }
+        if (from->right != NULL ){
+            int right_reg =  join_func(c , from->right) ; 
+            int hash_cursor = c->join_hash_counter++ ; 
+            second_blob = blob_of_data( pirmary_key_first_loc, primary_key_second_loc, -1 , NULL ) ; 
+            emit(c , push_to_hash , hash_cursor ,  right_reg , -1 , second_blob )  ; 
+        }
+        if (from->col_name != NULL ){
+            int hash_cursor = c->join_hash_counter++ ; 
+            char * needed_table_char = table_thing(from->col_name) ; 
+            table * needed_table = lookup_table(needed_table_char) ; 
+            int needed_col = col_name_to_int( operand_thing(from->col_name , needed_table ) )  ; 
+            emit(c , column_op , table_num(needed_table_char) , needed_col ,  c->register_counter , NULL ) ; 
+            c->register_counter++ ; 
+            first_blob = blob_of_data(pirmary_key_first_loc , primary_key_second_loc , needed_col , needed_table_char ) ; 
+            emit(c , push_to_hash , hash_cursor ,  c->register_counter -1  , -1 , first_blob )  ; 
+        }
+        if (from->extra_col != NULL  ){
+            int hash_cursor = c->join_hash_counter++ ; 
+            char * needed_table_char = table_thing(from->extra_col) ; 
+            table * needed_table = lookup_table(needed_table_char) ; 
+            int needed_col = col_name_to_int( operand_thing(from->extra_col , needed_table ) )  ; 
+            emit(c , column_op , table_num(needed_table_char) , needed_col ,  c->register_counter , NULL ) ; 
+            c->register_counter++ ; 
+            second_blob = blob_of_data( pirmary_key_first_loc, primary_key_second_loc , needed_col , needed_table_char ) ; 
+            emit(c , push_to_hash , hash_cursor ,  c->register_counter -1  , -1 , second_blob )  ; 
+        }
+
         for ( int i = 0 ; i < num  ; i++ ){
             if (i == num -1 ){
                 emit(c , next_cursor , c->cursor_num + i  , loop_addr_hb   , -1 , NULL ) ; 
@@ -7265,8 +7371,6 @@ engine{
         }
 
     }
-
-
     // see where you need ot begin is the equal things in the join can be done easily byt the hash but for the rest of them the thing like suppose jsut read this prompt if you want in the nothing ( bhuiit) claude i cant really explain it so yeah work from here 
     void compile_select (compiler *c ){
         emit(c , begin_op  , -1 , -1 , -1 , NULL ) ; 
@@ -8794,7 +8898,8 @@ engine{
     }
 }
 
-//  see man in the final of the aggregate functions we pretty much need to find if we have reached the state of the or like it is like the end row so like we need to know that first and on basis we literlly need to upsate out the entire odf the code so that it gets whats the issue and do the stuff cool ? 
+
+
 
 
 
@@ -8837,14 +8942,27 @@ bytecode {
     }
 
     typedef struct data_bin{
-        char * compare ; 
-        char * primary_key  ; 
+        union{
+            long i ; 
+            char *s ; 
+            float r ; 
+        }compare ; 
+        union{
+            long i ; 
+            char *s ; 
+            float r ; 
+        }primary_key_first ; 
+        union{
+            long i ; 
+            char *s ; 
+            float r ; 
+        }primary_key_second ; 
     }
 
     typedef struct bins{
         data_bin data[300] ; 
-        int row_num ; 
-        table * tbl ; 
+        int row_number ; 
+        char * tbl ; 
         int num_of_entires ; 
     }
 
@@ -9615,6 +9733,29 @@ bytecode {
         fseek(pager->file, page_num * PAGE_SIZE, SEEK_SET);
         fread(buf, 1, PAGE_SIZE, pager->file);
         return buf;
+    }
+    uint32_t float_to_int_bits(float f) {
+        if (f == 0.0f) f = 0.0f; 
+        uint32_t bits;
+        memcpy(&bits, &f, sizeof(f));
+        return bits;
+    }
+
+    void hash_bin_which(reg check , int nume ){
+        if (check->type == int_num  ){
+            return check->val->i % nume
+        }
+        else if (check->type == real_num ){
+            return float_to_int_bits(check->val->r) % nume  ; 
+        }
+        else if (check->type == blob_num && check->type == string_num  ){
+            int i = 0 ; 
+            int num = 0 ; 
+            while ( i < check->lenght){
+                num = num + check->val->s[i] - 'a' ; 
+            }
+            return num % nume  ; 
+        }
     }
 
     uint32_t get_child_pointer(Pager * pager ,uint32_t page_num , uint16_t cell_index ){
@@ -12148,17 +12289,89 @@ bytecode {
                 case null_join_op : 
                     byt->btr[op->p1].null = true ; 
                     break ; 
-           
+
+                case push_to_hash:
+                    unsigned char  * blob = op->p4 ; 
+                    int temp = 0;
+                    int pk_1  ; 
+                    int str_len ; 
+                    int pk_2 ; 
+                    int hash_bin_nums ; 
+                    int row_num  = -1  ; 
+                    char * table_name  = NULL ; 
+
+                    memcpy(hash_bins_num, blob + temp, sizeof(int));
+                    temp += sizeof(int);
+
+                    memcpy(pk_1, blob + temp, sizeof(int));
+                    temp += sizeof(int);
+
+                    memcpy(pk_2, blob + temp, sizeof(int));
+                    temp += sizeof(int);
+
+                    if (blob + temp != NULL) {
+                        memcpy(row_num, blob + temp, sizeof(int));
+                        temp += sizeof(int);
+                    } 
+
+                    if (blob + temp != NULL ){
+                        str_len = 0;
+                        memcpy(str_len, blob + temp, sizeof(int));
+                        temp += sizeof(int);
+                        if (str_len > 0) {
+                            table_name = (char *)malloc(str_len + 1);
+                            memcpy(table_name, blob + temp, str_len);
+                            table_name[str_len] = '\0';
+                        }
+                    }
+                    byt->hash_bins[op->p1]->bn[hbw]->num_of_entires++ ; 
+                    int hbw = hash_bin_which( byt->regis[op->p2] , hash_bins_num ) ; 
+                    if (byt->regis[pk_1].type ==   integer_num  ){
+                    byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_first.i = byt->regis[pk_1].val.i ; 
+                    }
+                    else if (byt->regis[pk_1].type == real_num){
+                        byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_first.r = byt->regis[pk_1].val.r ; 
+                    }
+                    else if (byt->regis[pk_1].type == string_num || byt->regis[pk_1].type == blob_num ){
+                        byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_first.s = malloc(byt->regis[pk_1].lenght)  ; 
+                        memcpy(byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_first.s  , byt->regis[pk_1].val.s , byt->regis[pk_1].lenght ) ; 
+                    }
+                    if (byt->regis[pk_2].type ==   integer_num  ){
+                    byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_second.i = byt->regis[pk_2].val.i ; 
+                    }
+                    else if (byt->regis[pk_2].type == real_num){
+                        byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_second.r = byt->regis[pk_2].val.r ; 
+                    }
+                    else if (byt->regis[pk_2].type == string_num || byt->regis[pk_2].type == blob_num ){
+                        byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_second.s = malloc(byt->regis[pk_2].lenght)  ; 
+                        memcpy(byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_second.s  , byt->regis[pk_2].val.s , byt->regis[pk_2].lenght ) ; 
+                    }
+                    if (byt->regis[op->p2].type ==   integer_num  ){
+                    byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].compare.i = byt->regis[op->p2].val.i ; 
+                    }
+                    else if (byt->regis[op->p2].type == real_num){
+                        byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].compare.r = byt->regis[op->p2].val.r ; 
+                    }
+                    else if (byt->regis[op->p2].type == string_num || byt->regis[op->p2].type == blob_num ){
+                        byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].compare.s = malloc(byt->regis[op->p2].lenght)  ; 
+                        memcpy(byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].compare.s  , byt->regis[op->p2].val.s , byt->regis[op->p2].lenght ) ;  
+                    }
+                    if (row_num != -1 ){
+                        byt->hash_bins->bn[hbw].row_number = row_num ; 
+                    }
+                    if (table_name != NULL ){
+                        byt->hash_bins->bn[hbw].tbl = malloc(str_len) ; 
+                        memcpy(byt->hash_bins->bn[hbw].tbl , table_name , str_len) ; 
+                    }
+                    break  ; 
+
+
                 
+               
                 }
             }
             
     }
-
-
-    case push_to_hash:
-        
-        break  ; 
 
 
 
@@ -12189,9 +12402,8 @@ int like_campare(reg *a , reg *b ){
 
 
 
-
-
 }
+
 
 
 void process_query(){

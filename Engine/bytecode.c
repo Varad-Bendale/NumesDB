@@ -34,6 +34,35 @@ bytecode {
         open_read_op
     }
 
+    typedef struct data_bin{
+        union{
+            long i ; 
+            char *s ; 
+            float r ; 
+        }compare ; 
+        union{
+            long i ; 
+            char *s ; 
+            float r ; 
+        }primary_key_first ; 
+        union{
+            long i ; 
+            char *s ; 
+            float r ; 
+        }primary_key_second ; 
+    }
+
+    typedef struct bins{
+        data_bin data[300] ; 
+        int row_number ; 
+        char * tbl ; 
+        int num_of_entires ; 
+    }
+
+    typedef struct hash_bins_str{
+        bins bn[300] ;
+        int num_of_bins ; 
+    }
 
     typedef enum collation { 
         BINARY = 1 ,
@@ -797,6 +826,29 @@ bytecode {
         fseek(pager->file, page_num * PAGE_SIZE, SEEK_SET);
         fread(buf, 1, PAGE_SIZE, pager->file);
         return buf;
+    }
+    uint32_t float_to_int_bits(float f) {
+        if (f == 0.0f) f = 0.0f; 
+        uint32_t bits;
+        memcpy(&bits, &f, sizeof(f));
+        return bits;
+    }
+
+    void hash_bin_which(reg check , int nume ){
+        if (check->type == int_num  ){
+            return check->val->i % nume
+        }
+        else if (check->type == real_num ){
+            return float_to_int_bits(check->val->r) % nume  ; 
+        }
+        else if (check->type == blob_num && check->type == string_num  ){
+            int i = 0 ; 
+            int num = 0 ; 
+            while ( i < check->lenght){
+                num = num + check->val->s[i] - 'a' ; 
+            }
+            return num % nume  ; 
+        }
     }
 
     uint32_t get_child_pointer(Pager * pager ,uint32_t page_num , uint16_t cell_index ){
@@ -3330,76 +3382,89 @@ bytecode {
                 case null_join_op : 
                     byt->btr[op->p1].null = true ; 
                     break ; 
-           
+
+                case push_to_hash:
+                    unsigned char  * blob = op->p4 ; 
+                    int temp = 0;
+                    int pk_1  ; 
+                    int str_len ; 
+                    int pk_2 ; 
+                    int hash_bin_nums ; 
+                    int row_num  = -1  ; 
+                    char * table_name  = NULL ; 
+
+                    memcpy(hash_bins_num, blob + temp, sizeof(int));
+                    temp += sizeof(int);
+
+                    memcpy(pk_1, blob + temp, sizeof(int));
+                    temp += sizeof(int);
+
+                    memcpy(pk_2, blob + temp, sizeof(int));
+                    temp += sizeof(int);
+
+                    if (blob + temp != NULL) {
+                        memcpy(row_num, blob + temp, sizeof(int));
+                        temp += sizeof(int);
+                    } 
+
+                    if (blob + temp != NULL ){
+                        str_len = 0;
+                        memcpy(str_len, blob + temp, sizeof(int));
+                        temp += sizeof(int);
+                        if (str_len > 0) {
+                            table_name = (char *)malloc(str_len + 1);
+                            memcpy(table_name, blob + temp, str_len);
+                            table_name[str_len] = '\0';
+                        }
+                    }
+                    byt->hash_bins[op->p1]->bn[hbw]->num_of_entires++ ; 
+                    int hbw = hash_bin_which( byt->regis[op->p2] , hash_bins_num ) ; 
+                    if (byt->regis[pk_1].type ==   integer_num  ){
+                    byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_first.i = byt->regis[pk_1].val.i ; 
+                    }
+                    else if (byt->regis[pk_1].type == real_num){
+                        byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_first.r = byt->regis[pk_1].val.r ; 
+                    }
+                    else if (byt->regis[pk_1].type == string_num || byt->regis[pk_1].type == blob_num ){
+                        byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_first.s = malloc(byt->regis[pk_1].lenght)  ; 
+                        memcpy(byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_first.s  , byt->regis[pk_1].val.s , byt->regis[pk_1].lenght ) ; 
+                    }
+                    if (byt->regis[pk_2].type ==   integer_num  ){
+                    byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_second.i = byt->regis[pk_2].val.i ; 
+                    }
+                    else if (byt->regis[pk_2].type == real_num){
+                        byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_second.r = byt->regis[pk_2].val.r ; 
+                    }
+                    else if (byt->regis[pk_2].type == string_num || byt->regis[pk_2].type == blob_num ){
+                        byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_second.s = malloc(byt->regis[pk_2].lenght)  ; 
+                        memcpy(byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].primary_key_second.s  , byt->regis[pk_2].val.s , byt->regis[pk_2].lenght ) ; 
+                    }
+                    if (byt->regis[op->p2].type ==   integer_num  ){
+                    byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].compare.i = byt->regis[op->p2].val.i ; 
+                    }
+                    else if (byt->regis[op->p2].type == real_num){
+                        byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].compare.r = byt->regis[op->p2].val.r ; 
+                    }
+                    else if (byt->regis[op->p2].type == string_num || byt->regis[op->p2].type == blob_num ){
+                        byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].compare.s = malloc(byt->regis[op->p2].lenght)  ; 
+                        memcpy(byt->hash_bins->bn[hbw].data[ byt->hash_bins->bn[hbw].num_of_entires ].compare.s  , byt->regis[op->p2].val.s , byt->regis[op->p2].lenght ) ;  
+                    }
+                    if (row_num != -1 ){
+                        byt->hash_bins->bn[hbw].row_number = row_num ; 
+                    }
+                    if (table_name != NULL ){
+                        byt->hash_bins->bn[hbw].tbl = malloc(str_len) ; 
+                        memcpy(byt->hash_bins->bn[hbw].tbl , table_name , str_len) ; 
+                    }
+                    break  ; 
+
+
                 
+               
                 }
             }
             
     }
-
-
-    typedef struct data_bin{
-        char * compare ; 
-        char * primary_key_first  ; 
-        char * primary_key_second  ; 
-    }
-
-    typedef struct bins{
-        data_bin data[300] ; 
-        int row_num ; 
-        char * tbl ; 
-        int num_of_entires ; 
-    }
-
-    typedef struct hash_bins_str{
-        bins bn[300] ;
-        int num_of_bins ; 
-    }
-
-
-    case push_to_hash:
-        unsigned char  * blob = op->p4 ; 
-        int temp = 0;
-        int pk_1  ; 
-        int pk_2 ; 
-        int hash_bin_nums ; 
-        int row_num ; 
-        char * table_name ; 
-
-        memcpy(hash_bins_num, blob + temp, sizeof(int));
-        temp += sizeof(int);
-
-        memcpy(pk_1, blob + temp, sizeof(int));
-        temp += sizeof(int);
-
-        memcpy(pk_2, blob + temp, sizeof(int));
-        temp += sizeof(int);
-
-        if (blob + temp != NULL) {
-            memcpy(row_num, blob + temp, sizeof(int));
-            temp += sizeof(int);
-        } 
-
-        if (blob + temp != NULL ){
-            int str_len = 0;
-            memcpy(str_len, blob + temp, sizeof(int));
-            temp += sizeof(int);
-            if (str_len > 0) {
-                table_name = (char *)malloc(str_len + 1);
-                memcpy(table_name, blob + temp, str_len);
-                table_name[str_len] = '\0';
-            }
-        }
-
-        int hbw = hash_bin_which( byt->regis[op->p2] , hash_bins_num ) ; 
-        memcpy(byt->hash_bins[op->p1]->bn[hbw]->data[byt->hash_bins[op->p1]->bn[hbw]->num_of_entires++] , byt->regis[op->p2])
-        break  ; 
-
-
-
-    case get_the_primary_key : 
-
-        break ; 
 
 
 
@@ -3430,33 +3495,8 @@ int like_campare(reg *a , reg *b ){
 
 
 
-
-
 }
 
-uint32_t float_to_int_bits(float f) {
-    if (f == 0.0f) f = 0.0f; 
-    uint32_t bits;
-    memcpy(&bits, &f, sizeof(f));
-    return bits;
-}
-
-void hash_bin_which(reg check , int nume ){
-    if (check->type == int_num  ){
-        return check->val->i % nume
-    }
-    else if (check->type == real_num ){
-        return float_to_int_bits(check->val->r) % nume  ; 
-    }
-    else if (check->type == blob_num && check->type == string_num  ){
-        int i = 0 ; 
-        int num = 0 ; 
-        while ( i < check->lenght){
-            num = num + check->val->s[i] - 'a' ; 
-        }
-        return num % nume  ; 
-    }
-}
 
 
 

@@ -900,8 +900,6 @@ engine{
         }
         return -1 ; 
     }
-// so where to begin from here see the thing is i take the primary key offset from here and then put like put those primary key in one of the register and the table and rthen one byt one the thing the new register you need to make and then go on do whatever today i want the hash to be done and dusted by anay cost 
-
     int string_length(char * table_name){
         if (table_name == NULL ){
             return 0 ; 
@@ -973,12 +971,14 @@ engine{
         if (from->left != NULL ){
             int left_reg =  join_func(c , from->left) ; 
             int hash_cursor = c->join_hash_counter++ ; 
-            first_blob = blob_of_data( pirmary_key_first_loc, primary_key_second_loc, -1 , NULL ) ; 
+            first_blob = blob_of_data( pirmary_key_first_loc, primary_key_second_loc, -1 , NULL ) ;
+            emit(c , push_to_hash , hash_cursor ,  left_reg , -1 , first_blob )  ; 
         }
         if (from->right != NULL ){
             int right_reg =  join_func(c , from->right) ; 
             int hash_cursor = c->join_hash_counter++ ; 
             second_blob = blob_of_data( pirmary_key_first_loc, primary_key_second_loc, -1 , NULL ) ; 
+            emit(c , push_to_hash , hash_cursor ,  right_reg , -1 , second_blob )  ; 
         }
         if (from->col_name != NULL ){
             int hash_cursor = c->join_hash_counter++ ; 
@@ -988,6 +988,7 @@ engine{
             emit(c , column_op , table_num(needed_table_char) , needed_col ,  c->register_counter , NULL ) ; 
             c->register_counter++ ; 
             first_blob = blob_of_data(pirmary_key_first_loc , primary_key_second_loc , needed_col , needed_table_char ) ; 
+            emit(c , push_to_hash , hash_cursor ,  c->register_counter -1  , -1 , first_blob )  ; 
         }
         if (from->extra_col != NULL  ){
             int hash_cursor = c->join_hash_counter++ ; 
@@ -997,6 +998,7 @@ engine{
             emit(c , column_op , table_num(needed_table_char) , needed_col ,  c->register_counter , NULL ) ; 
             c->register_counter++ ; 
             second_blob = blob_of_data( pirmary_key_first_loc, primary_key_second_loc , needed_col , needed_table_char ) ; 
+            emit(c , push_to_hash , hash_cursor ,  c->register_counter -1  , -1 , second_blob )  ; 
         }
 
         for ( int i = 0 ; i < num  ; i++ ){
@@ -2539,5 +2541,4 @@ engine{
 
 
 
-//  see man in the final of the aggregate functions we pretty much need to find if we have reached the state of the or like it is like the end row so like we need to know that first and on basis we literlly need to upsate out the entire odf the code so that it gets whats the issue and do the stuff cool ? 
 

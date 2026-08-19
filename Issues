@@ -33,3 +33,5 @@
 
 11. The sql master is been taken as the temporary solution for now so yeah once the entire thing is done the storage engine 
     the execution engine needs to be updated as per it is made 
+
+12 . The hash for equal join clause dont power the normal stuff which are not the columns so need to get them supported 

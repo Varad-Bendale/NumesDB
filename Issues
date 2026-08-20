@@ -35,3 +35,6 @@
     the execution engine needs to be updated as per it is made 
 
 12 . The hash for equal join clause dont power the normal stuff which are not the columns so need to get them supported 
+
+13. See wherever the sorting of the data is dont let it be in the groupby orderby or anywhere the checking that if the btree
+    is present or not is important cuase if the btree is aalready made there aint any need to make stuff again 

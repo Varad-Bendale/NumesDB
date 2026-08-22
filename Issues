@@ -41,4 +41,7 @@
 
 14. the register counter is mess for the ones which i dont want to be displayed so need to fix that up 
 
+15. The issue is there in the join right now while building i just took there is onyl one join in accountibilty so the data 
+    structure where the hash and the ranges are stored are just taken one so pretty much need to give each of the join a number 
+    and then like store the details of  the stuff as per the counter and put it in the array like that 
 

@@ -148,6 +148,28 @@ engine{
         int acc_reg ; 
     }
 
+    typedef struct table_and_col_range_info{
+        int * range ; 
+        int table_name ; 
+        int col_name ; 
+    }
+
+    typedef struct table_and_col_hash_info{
+        int * table_num ; 
+        int * column_used[300] ; 
+        int col_conter ; 
+        int * range[300] ; 
+        int range_counter ; 
+    }
+
+    typedef struct join_extra_info{
+        table_and_col_hash_info * join_select_unique_table[300] ; 
+        table_and_col_hash_info * join_select_hash_unique_table[300] ; 
+        int * tables_occuring_number_of_times[300] ; 
+        int join_table_counter  ; 
+        int join_hash_counter ; 
+    }
+
     typedef struct select_info{
         select_select_info *sel[300] ;
         int col_counter ;  
@@ -164,11 +186,8 @@ engine{
         select_from_info *having ; 
         select_ob_info *orderby[300] ; 
         int orderby_counter ; 
-        int * join_select_unique_table[300] ; 
-        int * join_select_hash_unique_table[300] ; 
-        int * tables_occuring_number_of_times[300] ; 
-        int join_table_counter  ; 
-        int join_hash_counter ; 
+        join_extra_info * join[300] ; 
+        int join_counter ; 
 
     }
 
@@ -861,16 +880,25 @@ engine{
         just_for_extra_safety(compiler * c ) ; 
         if (from->col_name ){
             int tab_num = table_num(c->tl ,table_thing(from->col) ) ; 
-            if ( c->join_select_hash_unique_table[tab_num] != tab_num  ){
-                c->join_select_hash_unique_table[tab_num] = tab_num   ; 
-                c->tables_occuring_number_of_times[tab_num]++ ; 
+            int col_num = col_name_to_int(operand_thing(from->col) ,c->select ) ; 
+            if ( c->select->join[c->select->join_counter]->join_select_hash_unique_table[tab_num]->table_num != tab_num  ){
+                c->select->join[c->select->join_counter]->join_select_hash_unique_table[tab_num]->table_num = tab_num   ; 
+                if ( c->select->join[c->select->join_counter]->join_select_hash_unique_table[tab_num]->column_used[col_num] != col_num  ){
+                    c->select->join[c->select->join_counter]->join_select_hash_unique_table[tab_num]->column_used[col_num] = col_num  ;
+                    c->select->join[c->select->join_counter]->join_select_hash_unique_table[tab_num]->col_conter++ ; 
+                }
+                c->select->join[c->select->join_counter]->tables_occuring_number_of_times[tab_num]++ ; 
             }
         }
         else if (from->extra_col ){
             int tab_num = table_num(c->tl ,table_thing(from->extra_col)) ; 
-            if ( c->join_select_hash_unique_table[tab_num] != tab_num  ){
-                c->join_select_hash_unique_table[tab_num] = tab_num   ; 
-                c->tables_occuring_number_of_times[tab_num]++ ; 
+            int col_num = col_name_to_int(operand_thing(from->extra_col) ,c->select ) ; 
+            if ( c->select->join[c->select->join_counter]->join_select_hash_unique_table[tab_num] != tab_num  ){
+                c->select->join[c->select->join_counter]->join_select_hash_unique_table[tab_num] = tab_num   ; 
+                if ( c->select->join[c->select->join_counter]->join_select_hash_unique_table[tab_num]->column_used[col_num] != col_num  ){
+                     c->select->join[c->select->join_counter]->join_select_hash_unique_table[tab_num]->column_used[col_num] = col_num  ;
+                }
+                c->select->join[c->select->join_counter]->tables_occuring_number_of_times[tab_num]++ ; 
             }
         }
         else if(from->left != NULL ){
@@ -885,9 +913,12 @@ engine{
         tables_and_their_hash_cursor_num(c , from ) ; 
         int counter = 0 ; 
         for (int i = 0 ; i < 300 ; i++ ){
-            if (c->join_select_hash_unique_table[i] = i ){
-                c->join_select_unique_table[counter] = i ; 
-                c->tables_occuring_number_of_times[counter] = c->tables_occuring_number_of_times[i] ; 
+            if (c->select->join[c->select->join_counter]->join_select_hash_unique_table[i] = i ){
+                c->select->join[c->select->join_counter]->join_select_unique_table[counter]->table_num = i ; 
+                for (int j = 0 ; j < c->select->join[c->select->join_counter]->join_select_hash_unique_table[i]->col_conter  ; j++ ){
+                    c->select->join[c->select->join_counter]->join_select_unique_table[counter]->column_used[j] = c->select->join[c->select->join_counter]->join_select_unique_table[i]->column_used[j]
+                }
+                c->select->join[c->select->join_counter]->tables_occuring_number_of_times[counter] = c->select->join[c->select->join_counter]->tables_occuring_number_of_times[i] ; 
                 counter++ ; 
             }
         }
@@ -945,7 +976,7 @@ engine{
         int hash_cursor  ; 
         int pirmary_key_first_loc ; 
         int primary_key_second_loc ; 
-        c->join_table_counter = tables_and_thier_cursor(c , from ) ; 
+        c->select->join[c->select->join_counter]->join_table_counter = tables_and_thier_cursor(c , from ) ; 
         for ( int i = 0 ; i < num  ; i++ ){
             emit(c , open_read_op , c->cursor_num + i , /*i(need to fix it bruh )*/ ,  -1 , -1 , NULL    ) ; 
         }
@@ -953,8 +984,8 @@ engine{
         int loop_addr_hb = c->count ; 
             int first  ; 
             int first_table = table_name_from_num( c->tl , from_org->table_name)  ;  
-            for ( int m = 0 ; m < c->select->join_table_counter ; m++ ){
-                if (c->select->join_select_unique_table[m] == first  ){
+            for ( int m = 0 ; m < c->select->join[c->select->join_counter]->join_table_counter ; m++ ){
+                if (c->select->join[c->select->join_counter]->join_select_unique_table[m] == first  ){
                     first = m ; 
                     break ; 
                 }
@@ -964,8 +995,8 @@ engine{
 
             int second_table = table_name_from_num( c->tl , from_org->join->table_or_col_name) ; 
             int second ;
-            for ( int m = 0 ; m < c->select->join_table_counter ; m++ ){
-                if (c->select->join_select_unique_table[m] == first  ){
+            for ( int m = 0 ; m < c->select->join[c->select->join_counter]->join_table_counter ; m++ ){
+                if (c->select->join[c->select->join_counter]->join_select_unique_table[m] == first  ){
                     second = m ; 
                     break ; 
                 }
@@ -975,18 +1006,18 @@ engine{
 
         if (from->left != NULL ){
             int left_reg =  join_func(c , from->left) ; 
-             hash_cursor = c->join_hash_counter++ ; 
+             hash_cursor = c->select->join[c->select->join_counter]->join_hash_counter++ ; 
             first_blob = blob_of_data( pirmary_key_first_loc, primary_key_second_loc, -1 , NULL ) ;
             emit(c , push_to_hash , hash_cursor ,  left_reg , -1 , first_blob )  ; 
         }
         if (from->right != NULL ){
             int right_reg =  join_func(c , from->right) ; 
-             hash_cursor = c->join_hash_counter++ ; 
+             hash_cursor = c->select->join[c->select->join_counter]->join_hash_counter++ ; 
             second_blob = blob_of_data( pirmary_key_first_loc, primary_key_second_loc, -1 , NULL ) ; 
             emit(c , push_to_hash , hash_cursor ,  right_reg , -1 , second_blob )  ; 
         }
         if (from->col_name != NULL ){
-             hash_cursor = c->join_hash_counter++ ; 
+             hash_cursor = c->select->join[c->select->join_counter]->join_hash_counter++ ; 
             char * needed_table_char = table_thing(from->col_name) ; 
             table * needed_table = lookup_table(needed_table_char) ; 
             int needed_col = col_name_to_int( operand_thing(from->col_name , needed_table ) )  ; 
@@ -996,7 +1027,7 @@ engine{
             emit(c , push_to_hash , hash_cursor ,  c->register_counter -1  , -1 , first_blob )  ; 
         }
         if (from->extra_col != NULL  ){
-             hash_cursor = c->join_hash_counter++ ; 
+             hash_cursor = c->select->join[c->select->join_counter]->join_hash_counter++ ; 
             char * needed_table_char = table_thing(from->extra_col) ; 
             table * needed_table = lookup_table(needed_table_char) ; 
             int needed_col = col_name_to_int( operand_thing(from->extra_col , needed_table ) )  ; 
@@ -1031,35 +1062,109 @@ engine{
         return 0 ; 
     }
 
-    int * get_the_max_and_min(compiler * c , char * name ){
-        int cursor = c->cursor_num + 1 ; 
-        emit(c , open_read_op , cursor , table_num(table_thing(name)) ,  -1 , -1 , NULL    ) ;
-        emit(c , aggregate_init , 1 , -1 , -1 , NULL  ) ; 
-        emit(c , aggregate_init , 2 , -1 , -1 , NULL  ) ;  
-        int loop_address = c->count ; 
-        emit(c , column_op  , cursor , operand_thing(name) , c->register_counter + 1 , NULL ) ; 
+    void* get_the_max_and_min(compiler * c  ){
+        c->select->join[c->select->join_counter]->join_select_unique_table ; 
         void * temp_max = "MAX" ; 
         void * temp_min = "MIN" ; 
-        emit(c , aggregate_step , 1 , c->register_counter + 1 , -1 , temp_max  ) ; 
-        emit(c , aggregate_step , 1 , c->register_counter + 1 , -1 , temp_min  ) ; 
-        emit(c , next_cursor , cursor , loop_address , -1 , NULL ) ; 
-        emit(c , aggregate_final , 1 , -1  , MAX - 6 , temp_max ) ; 
-        emit(c , aggregate_final , 2 , -1  , MAX - 7 , temp_min ) ; 
-        int * ans[2] = malloc(2 * sizeof(int)); ; 
-        ans = {MAX - 6 , MAX - 7 } ; 
-        return ans ; 
+        int init_register_counter = c->register_counter ; 
+        for ( int i = 0 ; i < c->table_counter  ; i++ ){
+            emit(c , open_read_op , c->cursor_num + i , /*i(need to fix it bruh )*/ ,  -1 , -1 , NULL    ) ; 
+            emit(c , aggregate_init , c->register_counter++  , -1 , -1 , NULL  ) ; 
+            emit(c , aggregate_init , c->register_counter++ , -1 , -1 , NULL  ) ;  
+        }
+        int end_init_register_counter = c->register_counter -1 ;
+        int loop_addrese = c->count ; 
+        for ( int i = 0 ; i < c->table_counter ; i++ ){
+            if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->col_conter > 0 ){
+                for ( int j  = 0 ; j < c->select->join[c->select->join_counter]->join_select_unique_table[i]->col_conter ; j++  ){
+                    emit(c , column_op  , c->cursor_num + i , operand_thing(c->select->join[c->select->join_counter]->join_select_unique_table[i]->column_used[j] ) , c->register_counter++ , NULL ) ; 
+                    emit(c , aggregate_step , init_register_counter +  2*i  , c->register_counter - 1 , -1 , temp_max  ) ; 
+                    emit(c , aggregate_step , init_register_counter +  2*i + 1    , c->register_counter - 1 , -1 , temp_min  ) ; 
+                }
+            }
+        }
+        for ( int i = 0 ; i < c->table_counter  ; i++ ){
+            if (i == c->table_counter -1 ){
+                 emit(c , next_cursor , c->current_num + i  , loop_addrese , -1 , NULL  ) ; 
+            }
+            else { 
+                 emit(c , next_cursor , c->current_num + i  , -1 , -1 , NULL  ) ; 
+            }
+
+        }
+
+        for ( int i = 0 ; i < c->table_counter ; i++ ){
+            if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->col_conter > 0 ){
+                for ( int j  = 0 ; j < c->select->join[c->select->join_counter]->join_select_unique_table[i]->col_conter ; j++  ){
+                    emit(c , aggregate_final , init_register_counter +  2*i  , -1  , MAX - 6 , temp_max ) ; 
+                    emit(c , aggregate_final , init_register_counter +  2*i + 1  , -1  , MAX - 7 , temp_min ) ; 
+                    int * ans[2] = malloc(2 * sizeof(int)); ; 
+                    ans = {init_register_counter +  2*i , init_register_counter +  2*i + 1  } ; 
+                    c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter++] = ans ; 
+                }
+            }
+        }
     }
 
-    void join_inequality_clause(compiler * c, select_select_info * from  , select_from_info * from_org  ){
-        c->join_table_counter = tables_and_thier_cursor(c , from ) ; 
-        for ( int i = 0 ; i < num  ; i++ ){
+    int * take_care_of_expression(compiler * c , int target , select_select_info * from   ){
+        int *ans[2]  = malloc(2* sizeof(int)) ; 
+        if (from->left != NULL ){
+            ans = take_care_of_expression(c , target ,  from->left ) ; 
+
+        }
+        if (from->right != NULL ){
+            ans = take_care_of_expression(c , target ,  from->right ) ; 
+        }
+
+
+        if (from->extra_col != NULL){
+            int extra_num = table_num(table_thing(from->extra_col )) % c->select->join[c->select->join_counter]->join_table_counter ; 
+            if (extra_num  == target ){
+                if (extra_num > 1 ){
+                    c->select->join[c->select->join_counter]->tables_occuring_number_of_times[extra_num]-- ; 
+                }
+            }
+            else { 
+                c->select->join[c->select->join_counter]->tables_occuring_number_of_times[extra_num]-- ; 
+            }
+            if (from->col_name != NULL ){
+                int num =  table_num(table_thing(from->col_name )) % c->select->join[c->select->join_counter]->join_table_counter ; 
+                if (num == target){
+                    if (num > 1 ){
+                        c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]--  ; 
+                    }
+                }
+                else { 
+                    c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]--  ; 
+                }
+                
+            }
+        }
+
+
+        if (from->col_name != NULL){
+            int num = table_num(table_thing(from->extra_col )) % c->select->join[c->select->join_counter]->join_table_counter ; 
+            if (num  == target ){
+                if (num > 1 ){
+                    c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]-- ; 
+                }
+                
+            }
+        }
+    }
+
+    void* join_inequality_clause(compiler * c, select_select_info * from  , select_from_info * from_org  ){
+        c->select->join[c->select->join_counter]->join_table_counter = tables_and_thier_cursor(c , from ) ; 
+        for ( int i = 0 ; i < c->table_counter  ; i++ ){
             emit(c , open_read_op , c->cursor_num + i , /*i(need to fix it bruh )*/ ,  -1 , -1 , NULL    ) ; 
         }
+        tables_and_thier_cursor_num(c , from) ; 
+        get_the_max_and_min( c ) ; 
         int loop_addr_hb = c->count ; 
             int first  ; 
             int first_table = table_name_from_num( c->tl , from_org->table_name)  ;  
-            for ( int m = 0 ; m < c->select->join_table_counter ; m++ ){
-                if (c->select->join_select_unique_table[m] == first  ){
+            for ( int m = 0 ; m < c->select->join[c->select->join_counter]->join_table_counter ; m++ ){
+                if (c->select->join[c->select->join_counter]->join_select_unique_table[m] == first  ){
                     first = m ; 
                     break ; 
                 }
@@ -1069,28 +1174,40 @@ engine{
 
             int second_table = table_name_from_num( c->tl , from_org->join->table_or_col_name) ; 
             int second ;
-            for ( int m = 0 ; m < c->select->join_table_counter ; m++ ){
-                if (c->select->join_select_unique_table[m] == first  ){
+            for ( int m = 0 ; m < c->select->join[c->select->join_counter]->join_table_counter ; m++ ){
+                if (c->select->join[c->select->join_counter]->join_select_unique_table[m] == first  ){
                     second = m ; 
                     break ; 
                 }
             }
             primary_key_second_loc = c->register_counter++ ; 
             emit(c , column_op , second , primary_key_offset( db , first_table ) ,primary_key_second_loc , NULL) ; 
-
         if (from->col_name != NULL ){
             int check  = check_the_stuff(c , from_org , table_thing(from->col_name)  ) ; 
             if (check == 0 ){
-                int * range = get_the_max_and_min( compiler * c , from->col_name ) ; 
+
             }
             else {
                 if ()
             }
 
         }
+        if (from->extra_col != NULL ){
+            int check  = check_the_stuff(c , from_org , table_thing(from->extra_col)  ) ; 
+            if (check == 0 ){
+                
+            }
+            else {
+                if ()
+            }
 
+        }
+        if (from->left != NULL ){
 
+        }
+        if (from->right != NULL ){
 
+        }
 
     }
     // see where you need ot begin is the equal things in the join can be done easily byt the hash but for the rest of them the thing like suppose jsut read this prompt if you want in the nothing ( bhuiit) claude i cant really explain it so yeah work from here 
@@ -2383,8 +2500,8 @@ engine{
 
     int get_the_join_cursor(compiler * c  , char * operator){
         int tb_num =  table_num(c , operator  ) ; 
-        for ( int i  = 0 ; i < c->join_table_counter ; i++ ){
-            if (join_select_unique_table[i] == tb_num){
+        for ( int i  = 0 ; i < c->select->join[c->select->join_counter]->join_table_counter ; i++ ){
+            if (c->select->join[c->select->join_counter]->join_select_unique_table[i] == tb_num){
                 return i ; 
             }
         }

@@ -6508,7 +6508,7 @@ engine{
         int acc_reg ; 
     }
 
-    typedef struct table_and_col_range_info{
+    typedef struct table_range{
         int * range ; 
         int table_name ; 
         int col_name ; 
@@ -6518,7 +6518,7 @@ engine{
         int * table_num ; 
         int * column_used[300] ; 
         int col_conter ; 
-        int * range[300] ; 
+        table_range * range[300] ; 
         int range_counter ; 
     }
 
@@ -7460,58 +7460,281 @@ engine{
                     emit(c , aggregate_final , init_register_counter +  2*i + 1  , -1  , MAX - 7 , temp_min ) ; 
                     int * ans[2] = malloc(2 * sizeof(int)); ; 
                     ans = {init_register_counter +  2*i , init_register_counter +  2*i + 1  } ; 
-                    c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter++] = ans ; 
+                    c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter++]->range = ans ; 
+                    c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter++]->table_name = i ; 
+                    c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter++]->col_name = j ; 
                 }
             }
         }
     }
 
-    int * take_care_of_expression(compiler * c , int target , select_select_info * from   ){
+    int * take_care_of_expression(compiler * c , int target , select_select_info * from   , int reg_1 , int reg_2  , int * done  ){
         int *ans[2]  = malloc(2* sizeof(int)) ; 
         if (from->left != NULL ){
-            ans = take_care_of_expression(c , target ,  from->left ) ; 
+            ans = take_care_of_expression(c , target ,  from->left , reg_1  , reg_2 , done  ) ; 
+            if (*done){
+                return ans; 
+            } 
 
         }
         if (from->right != NULL ){
-            ans = take_care_of_expression(c , target ,  from->right ) ; 
+            ans = take_care_of_expression(c , target ,  from->right , reg_1 , reg_2 , done  ) ; 
+            if (*done){
+                return ans; 
+            } 
         }
-
 
         if (from->extra_col != NULL){
             int extra_num = table_num(table_thing(from->extra_col )) % c->select->join[c->select->join_counter]->join_table_counter ; 
-            if (extra_num  == target ){
-                if (extra_num > 1 ){
-                    c->select->join[c->select->join_counter]->tables_occuring_number_of_times[extra_num]-- ; 
+            int extra_col_num = col_name_to_int(operand_thing(from->extra_col)) ; 
+            if (1){
+                if (extra_num  == target ){
+                    if (extra_num > 1 ){
+                        c->select->join[c->select->join_counter]->tables_occuring_number_of_times[extra_num]-- ; 
+                    }
+                    else { 
+                            *done = 1; 
+                            int * ans_for_func = malloc(2*sizeof(int)) ; 
+                            ans_for_func[0] = reg_1 ; 
+                            ans_for_func[1] = reg_2 ; 
+                            return ans_for_func ; 
+                    }
                 }
-            }
-            else { 
-                c->select->join[c->select->join_counter]->tables_occuring_number_of_times[extra_num]-- ; 
-            }
+                else { 
+                    if (c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num] > 0 ){
+                        c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]--  ; 
+                    }
+                }
+           }
             if (from->col_name != NULL ){
                 int num =  table_num(table_thing(from->col_name )) % c->select->join[c->select->join_counter]->join_table_counter ; 
+                int col_num = col_name_to_int(operand_thing(from->col_name)) ; 
                 if (num == target){
                     if (num > 1 ){
                         c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]--  ; 
                     }
+                    else { 
+                            *done = 1; 
+                            int * ans_for_func = malloc(2*sizeof(int)) ; 
+                            ans_for_func[0] = reg_1 ; 
+                            ans_for_func[1] = reg_2 ; 
+                            return ans_for_func ; 
+                    }
                 }
                 else { 
-                    c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]--  ; 
+                    if (c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num] > 0 ){
+                        c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]--  ; 
+                    }
+                }
+                int operator =  -1  ; 
+
+                if (from->operator != NULL ){
+                    if (strcmp(from->operator , "+")== 0 ){
+                        operator = add_op ; 
+                    }
+                    else if (strcmp(from->operator , "-")== 0 ){
+                        operator = subs_op ; 
+                    }
+                    else if  (strcmp(from->operator , "*")== 0 ){
+                        operator = mul_op ; 
+                    }   
+                    else if  (strcmp(from->operator , "/")== 0 ){
+                        operator = divide_op ; 
+                    }
+                    else if (strcmp(from->operator , "IS NULL")== 0 ){
+                        operator = is_null ; 
+                    }
+                    else if(strcmp(from->operator , "IS NOT NULL")== 0 ){
+                        operator = is_not_null ; 
+                    }
+                    int extra_values = malloc(2* sizeof(int)) ; 
+                    for (int i = 0 ; i < c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter ; i++){
+                        if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->table_name == extra_num ){
+                            if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->col_name == extra_col_num ){
+                                extra_values = c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->range ; 
+                                break ; 
+                            }
+                            else {
+                                continue ; 
+                            }
+                        }
+                        else { 
+                            continue ; 
+                        }
+                    }
+
+                    int normal_val = malloc(2* sizeof(int)) ; 
+                    for (int i = 0 ; i < c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter ; i++){
+                        if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->table_name == num ){
+                            if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->col_name == col_num ){
+                                normal_val = c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->range ; 
+                                break ; 
+                            }
+                            else {
+                                continue ; 
+                            }
+                        }
+                        else { 
+                            continue ; 
+                        }
+                    }
+                    emit(c , operator  , extra_values[0]  ,  normal_val[0]  , reg_1 , NULL ) ;
+                    emit(c , operator  , extra_values[1] ,  normal_val[1]  , reg_2 , NULL ) ;
+                    int * ans_for_func = malloc(2*sizeof(int)) ; 
+                    ans_for_func[0] = reg_1 ; 
+                    ans_for_func[1] = reg_2 ; 
+                    return ans_for_func ; 
+                }
+                else { 
+                    // error ; 
                 }
                 
+            }
+            else { 
+                // error  ; 
             }
         }
 
 
-        if (from->col_name != NULL){
+        if (from->col_name != NULL) {
             int num = table_num(table_thing(from->extra_col )) % c->select->join[c->select->join_counter]->join_table_counter ; 
-            if (num  == target ){
-                if (num > 1 ){
-                    c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]-- ; 
+            int col_num = col_name_to_int(operand_thing(from->col_name)) ; 
+            if (1){
+                if (num  == target ){
+                    if (num > 1 ){
+                        c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]-- ; 
+                    }
+                    else { 
+                            *done = 1; 
+                            int * ans_for_func = malloc(2*sizeof(int)) ; 
+                            ans_for_func[0] = reg_1 ; 
+                            ans_for_func[1] = reg_2 ; 
+                            return ans_for_func ; 
+                    } 
                 }
-                
+                else {
+                    if (num > 0 ){
+                        c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]-- ; 
+                    }
+                    else { 
+                        //error ; 
+                    }
+                }
+            }
+            if (from->operator != NULL ){
+                if (strcmp(from->operator , "+")== 0 ){
+                    operator = add_op ; 
+                }
+                else if (strcmp(from->operator , "-")== 0 ){
+                    operator = subs_op ; 
+                }
+                else if  (strcmp(from->operator , "*")== 0 ){
+                    operator = mul_op ; 
+                }   
+                else if  (strcmp(from->operator , "/")== 0 ){
+                    operator = divide_op ; 
+                }
+                else if (strcmp(from->operator , "IS NULL")== 0 ){
+                    operator = is_null ; 
+                }
+                else if(strcmp(from->operator , "IS NOT NULL")== 0 ){
+                    operator = is_not_null ; 
+                }
+                if (ans == NULL ){
+                    if (from->num_value != NULL ){
+                        emit(c , integer_op , *from->num_value , reg_1 , -1  , NULL  ) ;   
+                        emit(c , integer_op , *from->num_value , reg_2 , -1  , NULL  ) ;   
+                    }
+                    else if (from->char_value != NULL ){
+                        emit(c , string_op ,-1 , reg_1 , -1  , (void*)from->char_value   ) ;   
+                        emit(c , string_op ,-1 , reg_2 , -1  , (void*)from->char_value   ) ; 
+                    }
+                    else if (from->float_val != NULL ){
+                        emit(c , real_op , -1, reg_1 , -1  , (void*)from->float_val   ) ;   
+                        emit(c , real_op , -1, reg_2 , -1  , (void*)from->float_val   ) ;   
+                    }
+                    else if (from->blob != NULL ){
+                        emit(c , blob_op ,-1 , reg_1 , -1  , (void*)from->blob   ) ;   
+                        emit(c , blob_op ,-1 , reg_2 , -1  , (void*)from->blob   ) ;   
+                    }
+                }
+                int normal_val = malloc(2* sizeof(int)) ; 
+                for (int i = 0 ; i < c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter ; i++){
+                    if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->table_name == num ){
+                        if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->col_name == col_num ){
+                            normal_val = c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->range ; 
+                            break ; 
+                        }
+                        else {
+                            continue ; 
+                        }
+                    }
+                    else { 
+                        continue ; 
+                    }
+                }               
+                 if (ans != NULL ){
+                    emit(c , operator  , ans[0] , normal_val[0] , reg_1 , NULL ) ;
+                    emit(c , operator  , ans[1] , normal_val[1] , reg_2 , NULL ) ;
+                }
+                else { 
+                    emit(c , operator  , reg_1 , normal_val[0] , reg_1 , NULL ) ;
+                    emit(c , operator  , reg_2 , normal_val[1] , reg_2 , NULL ) ;
+                }
+                int * ans_for_func = malloc(2*sizeof(int)) ; 
+                ans_for_func[0] = reg_1 ; 
+                ans_for_func[1] = reg_2 ; 
+                return ans_for_func ; 
+            }
+            else { 
+                if (ans != NULL ){
+                    return ans  ; 
+                }
+                else { 
+                    // error ; 
+                }
+            }
+
+        }
+
+        else {
+            if (ans != NULL ){
+                if (from->num_value != NULL ){
+                    emit(c , integer_op , *from->num_value , reg_1 , -1  , NULL  ) ;   
+                    emit(c , integer_op , *from->num_value , reg_2 , -1  , NULL  ) ;   
+                }
+                else if (from->char_value != NULL ){
+                    emit(c , string_op ,-1 , reg_1 , -1  , (void*)from->char_value   ) ;   
+                    emit(c , string_op ,-1 , reg_2 , -1  , (void*)from->char_value   ) ; 
+                }
+                else if (from->float_val != NULL ){
+                    emit(c , real_op , -1, reg_1 , -1  , (void*)from->float_val   ) ;   
+                    emit(c , real_op , -1, reg_2 , -1  , (void*)from->float_val   ) ;   
+                }
+                else if (from->blob != NULL ){
+                    emit(c , blob_op ,-1 , reg_1 , -1  , (void*)from->blob   ) ;   
+                    emit(c , blob_op ,-1 , reg_2 , -1  , (void*)from->blob   ) ;   
+                }
+
+                emit(c , operator  , reg_1 , normal_val[0] , reg_1 , NULL ) ;
+                emit(c , operator  , reg_2 , normal_val[1] , reg_2 , NULL ) ;
+                int * ans_for_func = malloc(2*sizeof(int)) ; 
+                ans_for_func[0] = reg_1 ; 
+                ans_for_func[1] = reg_2 ; 
+                return ans_for_func ; 
+            }
+            else {
+                //error ; 
             }
         }
+        int * ans_for_func = malloc(2*sizeof(int)) ; 
+        ans_for_func[0] = reg_1 ; 
+        ans_for_func[1] = reg_2 ; 
+        return ans_for_func ; 
     }
+
+    
+
 
     void* join_inequality_clause(compiler * c, select_select_info * from  , select_from_info * from_org  ){
         c->select->join[c->select->join_counter]->join_table_counter = tables_and_thier_cursor(c , from ) ; 
@@ -9096,6 +9319,11 @@ engine{
         return reg ; 
     }
 }
+
+
+
+
+
 
 
 #include<strings.h>

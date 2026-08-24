@@ -45,3 +45,5 @@
     structure where the hash and the ranges are stored are just taken one so pretty much need to give each of the join a number 
     and then like store the details of  the stuff as per the counter and put it in the array like that 
 
+16. Not a problem but a future scope in the tree two of the just the numeric terms ( the ones which are not columns like just 3+ 2 )
+    are not quite supported yeah a singular operation is supported liek ( a + 3 ) but both of them as the normal terms aint working 

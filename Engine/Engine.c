@@ -1109,7 +1109,7 @@ engine{
     }
 
     int * take_care_of_expression(compiler * c , int target , select_select_info * from   , int reg_1 , int reg_2  , int * done  ){
-        int *ans[2]  = malloc(2* sizeof(int)) ; 
+        int *ans[3]  = malloc(3* sizeof(int)) ; 
         if (from->left != NULL ){
             ans = take_care_of_expression(c , target ,  from->left , reg_1  , reg_2 , done  ) ; 
             if (*done){
@@ -1134,9 +1134,10 @@ engine{
                     }
                     else { 
                             *done = 1; 
-                            int * ans_for_func = malloc(2*sizeof(int)) ; 
+                            int * ans_for_func[3] = malloc(3*sizeof(int)) ; 
                             ans_for_func[0] = reg_1 ; 
                             ans_for_func[1] = reg_2 ; 
+                            ans_for_func[2] = 1 ; 
                             return ans_for_func ; 
                     }
                 }
@@ -1155,9 +1156,10 @@ engine{
                     }
                     else { 
                             *done = 1; 
-                            int * ans_for_func = malloc(2*sizeof(int)) ; 
+                            int * ans_for_func[3] = malloc(3*sizeof(int)) ; 
                             ans_for_func[0] = reg_1 ; 
                             ans_for_func[1] = reg_2 ; 
+                            ans_for_func[2] = 1  ; 
                             return ans_for_func ; 
                     }
                 }
@@ -1220,9 +1222,10 @@ engine{
                     }
                     emit(c , operator  , extra_values[0]  ,  normal_val[0]  , reg_1 , NULL ) ;
                     emit(c , operator  , extra_values[1] ,  normal_val[1]  , reg_2 , NULL ) ;
-                    int * ans_for_func = malloc(2*sizeof(int)) ; 
+                    int * ans_for_func[3] = malloc(3*sizeof(int)) ; 
                     ans_for_func[0] = reg_1 ; 
                     ans_for_func[1] = reg_2 ; 
+                    ans_for_func[2] = 0  ; 
                     return ans_for_func ; 
                 }
                 else { 
@@ -1246,9 +1249,10 @@ engine{
                     }
                     else { 
                             *done = 1; 
-                            int * ans_for_func = malloc(2*sizeof(int)) ; 
+                            int * ans_for_func[3] = malloc(2*sizeof(int)) ; 
                             ans_for_func[0] = reg_1 ; 
                             ans_for_func[1] = reg_2 ; 
+                            ans_for_func[2] = 0  ; 
                             return ans_for_func ; 
                     } 
                 }
@@ -1321,9 +1325,10 @@ engine{
                     emit(c , operator  , reg_1 , normal_val[0] , reg_1 , NULL ) ;
                     emit(c , operator  , reg_2 , normal_val[1] , reg_2 , NULL ) ;
                 }
-                int * ans_for_func = malloc(2*sizeof(int)) ; 
+                int * ans_for_func[3] = malloc(3*sizeof(int)) ; 
                 ans_for_func[0] = reg_1 ; 
                 ans_for_func[1] = reg_2 ; 
+                ans_for_func[2] = 0  ; 
                 return ans_for_func ; 
             }
             else { 
@@ -1358,23 +1363,39 @@ engine{
 
                 emit(c , operator  , reg_1 , normal_val[0] , reg_1 , NULL ) ;
                 emit(c , operator  , reg_2 , normal_val[1] , reg_2 , NULL ) ;
-                int * ans_for_func = malloc(2*sizeof(int)) ; 
+                int * ans_for_func[3] = malloc(3*sizeof(int)) ; 
                 ans_for_func[0] = reg_1 ; 
                 ans_for_func[1] = reg_2 ; 
+                ans_for_func[2] = 0  ; 
                 return ans_for_func ; 
             }
             else {
                 //error ; 
             }
         }
-        int * ans_for_func = malloc(2*sizeof(int)) ; 
+        int * ans_for_func[3] = malloc(3*sizeof(int)) ; 
         ans_for_func[0] = reg_1 ; 
         ans_for_func[1] = reg_2 ; 
+        ans_for_func[2] = 0  ; 
         return ans_for_func ; 
     }
 
     
+    found_the_target_to_be_deplished_solve_it(compiler * c , int target , int  side , select_select_info * tree  , int * left_ans ){
+        select_select_info * new_one  = malloc(sizeof(select_select_info)); 
+        if (side == 0 ){
+            int * right_ans[3] = malloc(3*sizeof(int)) ; 
+            int left = c->register_counter++   ; 
+            int right  = c->register_counter++   ; 
+            int *done = malloc(sizeof(int)) ; 
+            *done = 0 ; 
+            right_ans = take_care_of_expression(c , target , tree->right , left  , right , done  ) ; 
+            
+        }
+        else { 
 
+        }
+    }
 
     void* join_inequality_clause(compiler * c, select_select_info * from  , select_from_info * from_org  ){
         c->select->join[c->select->join_counter]->join_table_counter = tables_and_thier_cursor(c , from ) ; 
@@ -1404,7 +1425,28 @@ engine{
                 }
             }
             primary_key_second_loc = c->register_counter++ ; 
-            emit(c , column_op , second , primary_key_offset( db , first_table ) ,primary_key_second_loc , NULL) ; 
+            emit(c , column_op , second , primary_key_offset( db , first_table ) ,primary_key_second_loc , NULL) ;
+        
+        
+        if (from->left != NULL ){
+            int left = c->register_counter++   ; 
+            int right  = c->register_counter++   ; 
+            int *done = malloc(sizeof(int)) ; 
+            *done = 0 ; 
+            int * left_ans[3] = malloc(3*sizeof(int)) ; 
+            left_ans = take_care_of_expression(c , target , from->left , left  , right , done  ) ; 
+            if (left_ans[2] == 1 ){
+                found_the_target_to_be_deplished_solve_it(c , target , 0  , from  , left_ans )
+            }
+        }
+        if (from->right != NULL ){
+            int left = c->register_counter++   ; 
+            int right  = c->register_counter++   ; 
+            int *done = malloc(sizeof(int)) ; 
+            *done = 0 ; 
+            take_care_of_expression(c , target , from->right , left  , right , done  ) ; 
+        }
+ 
         if (from->col_name != NULL ){
             int check  = check_the_stuff(c , from_org , table_thing(from->col_name)  ) ; 
             if (check == 0 ){
@@ -1425,13 +1467,6 @@ engine{
             }
 
         }
-        if (from->left != NULL ){
-
-        }
-        if (from->right != NULL ){
-
-        }
-
     }
     // see where you need ot begin is the equal things in the join can be done easily byt the hash but for the rest of them the thing like suppose jsut read this prompt if you want in the nothing ( bhuiit) claude i cant really explain it so yeah work from here 
     void compile_select (compiler *c ){

@@ -1108,17 +1108,17 @@ engine{
         }
     }
 
-    int * take_care_of_expression(compiler * c , int target , select_select_info * from   , int reg_1 , int reg_2  , int * done  ){
+    int * take_care_of_expression(compiler * c , int target , select_select_info * from   , int reg_1 , int reg_2  , int * done  , int * counts ){
         int *ans[3]  = malloc(3* sizeof(int)) ; 
         if (from->left != NULL ){
-            ans = take_care_of_expression(c , target ,  from->left , reg_1  , reg_2 , done  ) ; 
+            ans = take_care_of_expression(c , target ,  from->left , reg_1  , reg_2 , done  , counts ) ; 
             if (*done){
                 return ans; 
             } 
 
         }
         if (from->right != NULL ){
-            ans = take_care_of_expression(c , target ,  from->right , reg_1 , reg_2 , done  ) ; 
+            ans = take_care_of_expression(c , target ,  from->right , reg_1 , reg_2 , done , counts  ) ; 
             if (*done){
                 return ans; 
             } 
@@ -1142,8 +1142,8 @@ engine{
                     }
                 }
                 else { 
-                    if (c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num] > 0 ){
-                        c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]--  ; 
+                    if (counts[num] > 0 ){
+                        counts[num]--  ; 
                     }
                 }
            }
@@ -1152,7 +1152,7 @@ engine{
                 int col_num = col_name_to_int(operand_thing(from->col_name)) ; 
                 if (num == target){
                     if (num > 1 ){
-                        c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]--  ; 
+                        counts[num]--  ; 
                     }
                     else { 
                             *done = 1; 
@@ -1164,8 +1164,8 @@ engine{
                     }
                 }
                 else { 
-                    if (c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num] > 0 ){
-                        c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]--  ; 
+                    if (counts[num] > 0 ){
+                        counts[num]--  ; 
                     }
                 }
                 int operator =  -1  ; 
@@ -1245,7 +1245,7 @@ engine{
             if (1){
                 if (num  == target ){
                     if (num > 1 ){
-                        c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]-- ; 
+                        counts[num]-- ; 
                     }
                     else { 
                             *done = 1; 
@@ -1258,7 +1258,7 @@ engine{
                 }
                 else {
                     if (num > 0 ){
-                        c->select->join[c->select->join_counter]->tables_occuring_number_of_times[num]-- ; 
+                        counts[num]-- ; 
                     }
                     else { 
                         //error ; 
@@ -1380,8 +1380,61 @@ engine{
         return ans_for_func ; 
     }
 
+
+    typedef struct temp_info_for_path{
+        int path[300] ; 
+        int counter ; 
+    }
+
+    int  find_the_path_of_the_stuff_main(temp_info_for_path * tp , compiler * c   , int target   ,  select_select_info * tree  ){
+        if (tree == NULL){
+            return 0 ; 
+        }
+        if (tree->col_name != NULL ){
+            if (table_num(table_thing(tree->col_name)) == target){
+                return 1 ; 
+            } 
+        }
+        if (tree->extra_col != NULL ){ 
+           if ( table_num(table_thing(tree->extra_col)) == target) {
+                return 1;
+            }
+        }
+        if (tree->left != NULL ){
+            int num = find_the_path_of_the_stuff( c  , target   , tree->left   ) ; 
+            if (num == 1 ){
+                tp->path[tp->counter++] = 0 ; 
+                return 1 ; 
+            }
+        }
+        if (tree->right != NULL ){
+            int num = find_the_path_of_the_stuff( c  , target   , tree->right   ) ; 
+            if (num == 1 ){
+                 tp->path[tp->counter++] = 1 ; 
+                 return 1 ; 
+            }
+        }
+        return 0 ; 
+    }
+
+    void find_the_path_of_the_stuff(temp_info_for_path * tp , compiler * c , int target ,   select_select_info * tree  ){
+        int k = find_the_path_of_the_stuff_main( tp , c   ,  target   ,  tree  )
+        int i = 0 ; 
+        int j = tp->counter -1  ; 
+        while ( i < j  ){
+            int temp = tp->path[i] ; 
+            tp->path[i] = tp->path[j] ; 
+            tp->path[j] = temp ; 
+        }
+    }
+
+
+    check_if_the_stuff_negation_or_not{
+        // listen just solve the two ways and then like put them in the eq_Op and then just set up the trap tracking the c->count if it chaned just give out the 0 or 1 according and change the main operand as per it right do it 
+    }
+
     
-    found_the_target_to_be_deplished_solve_it(compiler * c , int target , int  side , select_select_info * tree  , int * left_ans ){
+    int found_the_target_to_be_deplished_solve_it(compiler * c , int target , int  side , select_select_info * tree  , int * left_ans ){
         select_select_info * new_one  = malloc(sizeof(select_select_info)); 
         if (side == 0 ){
             int * right_ans[3] = malloc(3*sizeof(int)) ; 
@@ -1389,8 +1442,57 @@ engine{
             int right  = c->register_counter++   ; 
             int *done = malloc(sizeof(int)) ; 
             *done = 0 ; 
-            right_ans = take_care_of_expression(c , target , tree->right , left  , right , done  ) ; 
-            
+            int counts[300];
+            for (int i = 0; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
+                counts[i] = c->select->join[c->select->join_counter]->tables_occuring_number_of_times[i];
+            }
+            right_ans = take_care_of_expression(c , target , tree->right , left  , right , done  , counts ) ; 
+            temp_info_for_path * tp ; 
+            find_the_path_of_the_stuff( tp  , c ,target , tree ) ; 
+            int i = 0 ; 
+            select_select_info * tree_temp  = tree ; 
+            if (tp->counter == 1 ){
+                return right_ans ; 
+            }
+            else { 
+                while ( i < tp->counter ){
+                    int * temp_ans[3] = malloc(3*sizeof(int)) ; 
+                    int left_one = c->register_counter++   ; 
+                    int right_one  = c->register_counter++   ; 
+                    if (tp->path[i] == 0 ){
+                        temp_ans = take_care_of_expression(c , target , tree_temp->left  , left_one ,right_one , done , counts   ) ; 
+                    }
+                    else if (tp->path[i] == 1 ){
+                        temp_ans = take_care_of_expression(c , target , tree_temp->right  , left_one ,right_one , done , counts   ) ; 
+                    }
+                    if (tree_temp->operator != NULL ){
+                        if (strcmp(tree_temp->operator  , "+" ) == 0 ){
+                            emit(c , subs_op , right_ans[0] , temp_ans[0] , right_ans[0] , NULL) ; 
+                            emit(c , subs_op , right_ans[1] , temp_ans[1] , right_ans[1] , NULL) ; 
+                        }
+                        else if (strcmp(tree_temp->operator  , "-" ) == 0 ){
+                            emit(c , add_op , right_ans[0] , temp_ans[0] , right_ans[0] , NULL) ; 
+                            emit(c , add_op , right_ans[1] , temp_ans[1] , right_ans[1] , NULL) ; 
+                        }
+                        else if (strcmp(tree_temp->operator  , "*" ) == 0 ){
+                            check_if_the_stuff_negation_or_not() ; 
+                            emit(c , divide_op , right_ans[0] , temp_ans[0] , right_ans[0] , NULL) ; 
+                            emit(c , divide_op , right_ans[1] , temp_ans[1] , right_ans[1] , NULL) ; 
+                        }
+                        else if (strcmp(tree_temp->operator  , "/" ) == 0 ){
+                            emit(c , mul_op , right_ans[0] , temp_ans[0] , right_ans[0] , NULL) ; 
+                            emit(c , mul_op , right_ans[1] , temp_ans[1] , right_ans[1] , NULL) ; 
+                        }
+                    }
+                    if (tp->path[i] == 0 ){
+                        tree_temp = tree_temp->right ; 
+                    }
+                    else if (tp->path[i] == 1 ){
+                        tree_temp = tree_temp->left ; 
+                    }
+                    i++ ; 
+                }
+            }
         }
         else { 
 
@@ -1434,7 +1536,11 @@ engine{
             int *done = malloc(sizeof(int)) ; 
             *done = 0 ; 
             int * left_ans[3] = malloc(3*sizeof(int)) ; 
-            left_ans = take_care_of_expression(c , target , from->left , left  , right , done  ) ; 
+            int counts[300];
+            for (int i = 0; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
+                counts[i] = c->select->join[c->select->join_counter]->tables_occuring_number_of_times[i];
+            }
+            left_ans = take_care_of_expression(c , target , from->left , left  , right , done , counts  ) ; 
             if (left_ans[2] == 1 ){
                 found_the_target_to_be_deplished_solve_it(c , target , 0  , from  , left_ans )
             }
@@ -1444,7 +1550,11 @@ engine{
             int right  = c->register_counter++   ; 
             int *done = malloc(sizeof(int)) ; 
             *done = 0 ; 
-            take_care_of_expression(c , target , from->right , left  , right , done  ) ; 
+            int counts[300];
+            for (int i = 0; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
+                counts[i] = c->select->join[c->select->join_counter]->tables_occuring_number_of_times[i];
+            }
+            take_care_of_expression(c , target , from->right , left  , right , done  , counts ) ; 
         }
  
         if (from->col_name != NULL ){

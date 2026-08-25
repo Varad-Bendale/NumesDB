@@ -101,9 +101,9 @@ engine{
         select_select_info *left ; 
         select_select_info * right ; 
         char * as ; 
-        float *float_val ; 
+        float float_val ; 
         unsigned char * blob ; 
-        int * num_value ; 
+        int  num_value ; 
         char * char_value ; 
         int acc_reg ; 
     }
@@ -1191,36 +1191,29 @@ engine{
                         operator = is_not_null ; 
                     }
                     int extra_values = malloc(2* sizeof(int)) ; 
-                    for (int i = 0 ; i < c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter ; i++){
-                        if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->table_name == extra_num ){
-                            if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->col_name == extra_col_num ){
-                                extra_values = c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->range ; 
-                                break ; 
+                    for (int i = 0; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
+                        if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->table_name == extra_num ){
+                            for (int j = 0; j < c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter; j++) {
+                                    if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[j]->col_name == extra_col_num) {
+                                        normal_val = c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[j]->range;
+                                        break;
+                                    }
                             }
-                            else {
-                                continue ; 
-                            }
-                        }
-                        else { 
-                            continue ; 
                         }
                     }
 
                     int normal_val = malloc(2* sizeof(int)) ; 
-                    for (int i = 0 ; i < c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter ; i++){
-                        if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->table_name == num ){
-                            if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->col_name == col_num ){
-                                normal_val = c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->range ; 
-                                break ; 
+                    for (int i = 0; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
+                        if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->table_name == num ){
+                            for (int j = 0; j < c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter; j++) {
+                                    if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[j]->col_name == col_num) {
+                                        normal_val = c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[j]->range;
+                                        break;
+                                    }
                             }
-                            else {
-                                continue ; 
-                            }
-                        }
-                        else { 
-                            continue ; 
                         }
                     }
+
                     emit(c , operator  , extra_values[0]  ,  normal_val[0]  , reg_1 , NULL ) ;
                     emit(c , operator  , extra_values[1] ,  normal_val[1]  , reg_2 , NULL ) ;
                     int * ans_for_func[3] = malloc(3*sizeof(int)) ; 
@@ -1304,20 +1297,16 @@ engine{
                     }
                 }
                 int normal_val = malloc(2* sizeof(int)) ; 
-                for (int i = 0 ; i < c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter ; i++){
-                    if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->table_name == num ){
-                        if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->col_name == col_num ){
-                            normal_val = c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[i]->range ; 
-                            break ; 
+                    for (int i = 0; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
+                        if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->table_name == extra_num ){
+                            for (int j = 0; j < c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter; j++) {
+                                    if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[j]->col_name == extra_col_num) {
+                                        normal_val = c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[j]->range;
+                                        break;
+                                    }
+                            }
                         }
-                        else {
-                            continue ; 
-                        }
-                    }
-                    else { 
-                        continue ; 
-                    }
-                }               
+                    }       
                  if (ans != NULL ){
                     emit(c , operator  , ans[0] , normal_val[0] , reg_1 , NULL ) ;
                     emit(c , operator  , ans[1] , normal_val[1] , reg_2 , NULL ) ;
@@ -1462,16 +1451,69 @@ engine{
         final_finished_equation * answer = malloc(sizeof(final_finished_equation)) ; 
         static int trap_fired = 0 ; 
         if (side == 0 ){
-            int * right_ans[3] = malloc(3*sizeof(int)) ; 
-            int left = c->register_counter++   ; 
-            int right  = c->register_counter++   ; 
-            int *done = malloc(sizeof(int)) ; 
-            *done = 0 ; 
-            int counts[300];
-            for (int i = 0 ; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
-                counts[i] = c->select->join[c->select->join_counter]->tables_occuring_number_of_times[i];
+            if (tree->right != NULL ){
+                int * right_ans[3] = malloc(3*sizeof(int)) ; 
+                int left = c->register_counter++   ; 
+                int right  = c->register_counter++   ; 
+                int *done = malloc(sizeof(int)) ; 
+                *done = 0 ; 
+                int counts[300];
+                for (int i = 0 ; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
+                    counts[i] = c->select->join[c->select->join_counter]->tables_occuring_number_of_times[i];
+                }
+                right_ans = take_care_of_expression(c , target , tree->right , left  , right , done  , counts ) ; 
             }
-            right_ans = take_care_of_expression(c , target , tree->right , left  , right , done  , counts ) ; 
+            else {              
+                int left = c->register_counter++   ; 
+                int right  = c->register_counter++ ; 
+                    if (tree->extra_col != NULL ){
+                        int num = table_num(table_thing(tree->extra_col)) ; 
+                        int col_name = col_name_to_int(operand_thing(tree->extra_col)) ; 
+                        int normal_val = malloc(2* sizeof(int)) ; 
+                        for (int i = 0; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
+                            if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->table_name == num ){
+                                for (int j = 0; j < c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter; j++) {
+                                        if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[j]->col_name == col_num) {
+                                            normal_val = c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[j]->range;
+                                            break;
+                                        }
+                                }
+                            }
+                        }
+                        right_ans[0]  = normal_val[0] ; 
+                        right_ans[1] = normal_val[1] ; 
+                        right_ans[2] = 0 ; 
+                    }
+                    else if ( tree->num_value ){
+                        emit(c , integer_op , tree->num_value  , left  , -1 , NULL  ) ; 
+                        emit(c , integer_op , tree->num_value  , right  , -1 , NULL  ) ; 
+                        right_ans[0]  = left ; 
+                        right_ans[1] = right ; 
+                        right_ans[2] = 0 ; 
+                    }
+                    else if (tree->char_value != NULL ){
+                        emit(c , string_op , -1  , left  , -1 , tree->char_value   ) ; 
+                        emit(c , string_op , -1 , right  , -1 , tree->char_value    ) ; 
+                        right_ans[0]  = left ; 
+                        right_ans[1] = right ;
+                        right_ans[2] = 0 ; 
+                    }
+                    else if (tree->blob != NULL  ){
+                        emit(c , blob_op , -1  , left  , -1 , tree->blob   ) ; 
+                        emit(c , blob_op , -1 , right  , -1 , tree->blob    ) ; 
+                        right_ans[0]  = left ; 
+                        right_ans[1] = right ;
+                        right_ans[2] = 0 ; 
+                    }
+                    else if (tree->float_val ){
+                        emit(c , real_op , tree->num_value  , left  , -1 , NULL  ) ; 
+                        emit(c , real_op , tree->num_value  , right  , -1 , NULL  ) ; 
+                        right_ans[0]  = left ; 
+                        right_ans[1] = right ;
+                        right_ans[2] = 0 ; 
+                    }
+            }
+
             temp_info_for_path * tp ; 
             find_the_path_of_the_stuff( tp  , c ,target , tree ) ; 
             int i = 0 ; 
@@ -1713,6 +1755,8 @@ engine{
     }
 
     void* join_inequality_clause(compiler * c, select_select_info * from  , select_from_info * from_org  ){
+        final_finished_equation * ans ; 
+        ans = sizeof(final_finished_equation) ; 
         c->select->join[c->select->join_counter]->join_table_counter = tables_and_thier_cursor(c , from ) ; 
         for ( int i = 0 ; i < c->table_counter  ; i++ ){
             emit(c , open_read_op , c->cursor_num + i , /*i(need to fix it bruh )*/ ,  -1 , -1 , NULL    ) ; 
@@ -1748,15 +1792,70 @@ engine{
             int right  = c->register_counter++   ; 
             int *done = malloc(sizeof(int)) ; 
             *done = 0 ; 
+            final_finished_equation * ans ; 
             int * left_ans[3] = malloc(3*sizeof(int)) ; 
             int counts[300];
             for (int i = 0; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
                 counts[i] = c->select->join[c->select->join_counter]->tables_occuring_number_of_times[i];
             }
-            left_ans = take_care_of_expression(c , target , from->left , left  , right , done , counts  ) ; 
-            if (left_ans[2] == 1 ){
-                found_the_target_to_be_deplished_solve_it(c , target , 0  , from  , left_ans )
+            if (from->left){
+                left_ans = take_care_of_expression(c , target , from->left , left  , right , done , counts  ) ; 
             }
+            else {
+                int left_aha = c->register_counter++   ; 
+                int right_aha  = c->register_counter++ ; 
+                if (tree->extra_col != NULL ){
+                    int num = table_num(table_thing(tree->extra_col)) ; 
+                    int col_name = col_name_to_int(operand_thing(tree->extra_col)) ; 
+                    int normal_val = malloc(2* sizeof(int)) ; 
+                    for (int i = 0; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
+                        if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->table_name == num ){
+                            for (int j = 0; j < c->select->join[c->select->join_counter]->join_select_unique_table[i]->range_counter; j++) {
+                                    if (c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[j]->col_name == col_num) {
+                                        normal_val = c->select->join[c->select->join_counter]->join_select_unique_table[i]->range[j]->range;
+                                        break;
+                                    }
+                            }
+                        }
+                    }
+                    left_ans[0]  = normal_val[0] ; 
+                    left_ans[1] = normal_val[1] ; 
+                    left_ans[2] = 0 ; 
+                }
+                else if ( tree->num_value ){
+                    emit(c , integer_op , tree->num_value  , left_aha  , -1 , NULL  ) ; 
+                    emit(c , integer_op , tree->num_value  , right_aha  , -1 , NULL  ) ; 
+                    left_ans[0]  = left_aha ; 
+                    left_ans[1] = right_aha ; 
+                    left_ans[2] = 0 ; 
+                }
+                else if (tree->char_value != NULL ){
+                    emit(c , string_op , -1  , left_aha  , -1 , tree->char_value   ) ; 
+                    emit(c , string_op , -1 , right_aha  , -1 , tree->char_value    ) ; 
+                    left_ans[0]  = left_aha ; 
+                    left_ans[1] = right_aha ;
+                    left_ans[2] = 0 ; 
+                }
+                else if (tree->blob != NULL  ){
+                    emit(c , blob_op , -1  , left_aha  , -1 , tree->blob   ) ; 
+                    emit(c , blob_op , -1 , right_aha  , -1 , tree->blob    ) ; 
+                    left_ans[0]  = left_aha ; 
+                    left_ans[1] = right_aha ;
+                    left_ans[2] = 0 ; 
+                }
+                else if (tree->float_val ){
+                    emit(c , real_op , tree->num_value  , left_aha  , -1 , NULL  ) ; 
+                    emit(c , real_op , tree->num_value  , right_aha  , -1 , NULL  ) ; 
+                    left_ans[0]  = left_aha ; 
+                    left_ans[1] = right_aha ;
+                    left_ans[2] = 0 ; 
+                }
+            }
+            if (left_ans[2] == 1 ){
+                ans = found_the_target_to_be_deplished_solve_it(c , target , 0  , from  , left_ans )
+            }
+
+
         }
 
         if (from->right != NULL ){
@@ -1768,32 +1867,15 @@ engine{
             for (int i = 0; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
                 counts[i] = c->select->join[c->select->join_counter]->tables_occuring_number_of_times[i];
             }
-            take_care_of_expression(c , target , from->right , left  , right , done  , counts ) ;
+            if (from->right){
+                take_care_of_expression(c , target , from->right , left  , right , done  , counts ) ;
+            }
             if (left_ans[2] == 1 ){
-                found_the_target_to_be_deplisheedd_solve_it(c , target , 1  , from  , left_ans )
+                ans = found_the_target_to_be_deplisheedd_solve_it(c , target , 1  , from  , left_ans )
             } 
         }
  
-        if (from->col_name != NULL ){
-            int check  = check_the_stuff(c , from_org , table_thing(from->col_name)  ) ; 
-            if (check == 0 ){
-
-            }
-            else {
-                if ()
-            }
-
-        }
-        if (from->extra_col != NULL ){
-            int check  = check_the_stuff(c , from_org , table_thing(from->extra_col)  ) ; 
-            if (check == 0 ){
-                
-            }
-            else {
-                if ()
-            }
-
-        }
+        
     }
 
 

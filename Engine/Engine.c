@@ -1450,8 +1450,16 @@ engine{
         emit(c ,check_negative , ans[1] , -1 , -1 , NULL ) ; 
     }
     
-    int found_the_target_to_be_deplished_solve_it(compiler * c , int target , int  side , select_select_info * tree  , int * left_ans ){
+    typedef struct final_finished_equation{
+        int * range ;
+        char * operator ; 
+        int target_table ; 
+        int target_column ; 
+    }
+
+    final_finished_equation * found_the_target_to_be_deplished_solve_it(compiler * c , int target , int  side , select_select_info * tree  , int * left_ans ){
         select_select_info * new_one  = malloc(sizeof(select_select_info)); 
+        final_finished_equation * answer = malloc(sizeof(final_finished_equation)) ; 
         static int trap_fired = 0 ; 
         if (side == 0 ){
             int * right_ans[3] = malloc(3*sizeof(int)) ; 
@@ -1469,7 +1477,12 @@ engine{
             int i = 0 ; 
             select_select_info * tree_temp  = tree ; 
             if (tp->counter == 1 ){
-                return right_ans ; 
+                strcpy(answer->operator , tree_temp->operator ) ; 
+                answer->range = malloc(3*sizeof(int)) ; 
+                answer->range  = right_ans ; 
+                answer->target_table = table ; 
+                answer->target_column = col_name_to_int(operand_thing(tree_temp->col_name)) ;   
+                return answer ; 
             }
             else { 
                 while ( i < tp->counter ){
@@ -1559,26 +1572,36 @@ engine{
                     }
                     i++ ; 
                 }
-                return right_ans ; 
+                if (tp->path[tp->counter -1 ] == 1 ){
+                    strcpy(answer->operator , tree_temp->operator ) ; 
+                    answer->range = malloc(3*sizeof(int)) ; 
+                    answer->range  = right_ans ; 
+                    answer->target_table = table ; 
+                    answer->target_column = col_name_to_int(operand_thing(tree_temp->extra_col)) ;   
+                    return answer ;  
+                }
+                else { 
+                    strcpy(answer->operator , tree_temp->operator ) ; 
+                    answer->range = malloc(3*sizeof(int)) ; 
+                    answer->range  = right_ans ; 
+                    answer->target_table = table ; 
+                    answer->target_column = col_name_to_int(operand_thing(tree_temp->col_name)) ;   
+                    return answer ; 
+                }
             }
         }
         else { 
-           int * left_ans[3] = malloc(3*sizeof(int)) ; 
-            int left = c->register_counter++   ; 
-            int right  = c->register_counter++   ; 
-            int *done = malloc(sizeof(int)) ; 
-            *done = 0 ; 
-            int counts[300];
-            for (int i = 0 ; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
-                counts[i] = c->select->join[c->select->join_counter]->tables_occuring_number_of_times[i];
-            }
-            left_ans = take_care_of_expression(c , target , tree->left , left  , right , done  , counts ) ; 
             temp_info_for_path * tp ; 
             find_the_path_of_the_stuff( tp  , c ,target , tree ) ; 
             int i = 0 ; 
             select_select_info * tree_temp  = tree ; 
             if (tp->counter == 1 ){
-                return left_ans ; 
+                strcpy(answer->operator , tree_temp->operator ) ; 
+                answer->range = malloc(3*sizeof(int)) ; 
+                answer->range  = left_ans ; 
+                answer->target_table = table ; 
+                answer->target_column = col_name_to_int(operand_thing(tree_temp->extra_col)) ;   
+                return answer ; 
             }
             else { 
                 while ( i < tp->counter ){
@@ -1668,10 +1691,25 @@ engine{
                     }
                     i++ ; 
                 }
-                return left_ans ; 
+                if (tp->path[tp->counter -1 ] == 1 ){
+                    strcpy(answer->operator , tree_temp->operator ) ; 
+                    answer->range = malloc(3*sizeof(int)) ; 
+                    answer->range  = right_ans ; 
+                    answer->target_table = table ; 
+                    answer->target_column = col_name_to_int(operand_thing(tree_temp->extra_col)) ;   
+                    return answer ;  
+                }
+                else { 
+                    strcpy(answer->operator , tree_temp->operator ) ; 
+                    answer->range = malloc(3*sizeof(int)) ; 
+                    answer->range  = right_ans ; 
+                    answer->target_table = table ; 
+                    answer->target_column = col_name_to_int(operand_thing(tree_temp->col_name)) ;   
+                    return answer ; 
+                }
             }
         }
-        return -1 ; 
+        return answer ; 
     }
 
     void* join_inequality_clause(compiler * c, select_select_info * from  , select_from_info * from_org  ){
@@ -1720,16 +1758,20 @@ engine{
                 found_the_target_to_be_deplished_solve_it(c , target , 0  , from  , left_ans )
             }
         }
+
         if (from->right != NULL ){
-            int left = c->register_counter++   ; 
-            int right  = c->register_counter++   ; 
+            int left = c->register_counter++ ; 
+            int right  = c->register_counter++ ; 
             int *done = malloc(sizeof(int)) ; 
             *done = 0 ; 
             int counts[300];
             for (int i = 0; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
                 counts[i] = c->select->join[c->select->join_counter]->tables_occuring_number_of_times[i];
             }
-            take_care_of_expression(c , target , from->right , left  , right , done  , counts ) ; 
+            take_care_of_expression(c , target , from->right , left  , right , done  , counts ) ;
+            if (left_ans[2] == 1 ){
+                found_the_target_to_be_deplisheedd_solve_it(c , target , 1  , from  , left_ans )
+            } 
         }
  
         if (from->col_name != NULL ){
@@ -1753,6 +1795,9 @@ engine{
 
         }
     }
+
+
+
     // see where you need ot begin is the equal things in the join can be done easily byt the hash but for the rest of them the thing like suppose jsut read this prompt if you want in the nothing ( bhuiit) claude i cant really explain it so yeah work from here 
     void compile_select (compiler *c ){
         emit(c , begin_op  , -1 , -1 , -1 , NULL ) ; 

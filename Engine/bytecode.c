@@ -1334,6 +1334,25 @@ bytecode {
                 case halt:
                     return;
 
+                case check_negative : 
+                    if (byt->regis[op->p1].type == int_num   ){
+                        if (byt->regis[op->p1].val.i < 0 || ){
+                            trap_fired = 1 ; 
+                        }
+                        else { 
+                            trap_fired = 0 ;     
+                        }
+                    }
+                    if ( byt->regis[op->p1].type == real_num){
+                        if (byt->regis[op->p1].val.r < 0 || ){
+                            trap_fired = 1 ; 
+                        }
+                        else { 
+                            trap_fired = 0 ;     
+                        }
+                    }
+                    break ; 
+
                 case integer_op:
                     byt->regis[op->p2].type = int_num;
                     byt->regis[op->p2].val.i = op->p1;

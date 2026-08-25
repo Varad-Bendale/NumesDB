@@ -1108,6 +1108,7 @@ engine{
         }
     }
 
+
     int * take_care_of_expression(compiler * c , int target , select_select_info * from   , int reg_1 , int reg_2  , int * done  , int * counts ){
         int *ans[3]  = malloc(3* sizeof(int)) ; 
         if (from->left != NULL ){
@@ -1429,13 +1430,29 @@ engine{
     }
 
 
-    check_if_the_stuff_negation_or_not{
-        // listen just solve the two ways and then like put them in the eq_Op and then just set up the trap tracking the c->count if it chaned just give out the 0 or 1 according and change the main operand as per it right do it 
+    void  check_if_the_stuff_negation_or_not(compiler *c  , int target , select_select_info * tree  ) {
+        int * ans[3] = malloc(3*sizeof(int)) ; 
+        int left_stuff = c->register_counter++   ; 
+        int right_stuff  = c->register_counter++   ; 
+        int *done = malloc(sizeof(int)) ; 
+        *done = 0 ; 
+        int counts[300];
+        for (int i = 0 ; i < c->select->join[c->select->join_counter]->join_table_counter ; i++) {
+            counts[i] = 300;
+        }
+        ans = take_care_of_expression(c , target , tree , left  , right , done  , counts ) ; 
+        emit(c ,check_negative , ans[0] , -1 , -1, NULL ) ; 
+        emit(c ,check_negative , ans[1] , -1 , -1 , NULL ) ; 
     }
 
+    void  check_if_the_stuff_negation_or_not_without_solver(compiler *c  , int*ans  ) { 
+        emit(c ,check_negative , ans[0] , -1 , -1, NULL ) ; 
+        emit(c ,check_negative , ans[1] , -1 , -1 , NULL ) ; 
+    }
     
     int found_the_target_to_be_deplished_solve_it(compiler * c , int target , int  side , select_select_info * tree  , int * left_ans ){
         select_select_info * new_one  = malloc(sizeof(select_select_info)); 
+        static int trap_fired = 0 ; 
         if (side == 0 ){
             int * right_ans[3] = malloc(3*sizeof(int)) ; 
             int left = c->register_counter++   ; 
@@ -1443,7 +1460,7 @@ engine{
             int *done = malloc(sizeof(int)) ; 
             *done = 0 ; 
             int counts[300];
-            for (int i = 0; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
+            for (int i = 0 ; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
                 counts[i] = c->select->join[c->select->join_counter]->tables_occuring_number_of_times[i];
             }
             right_ans = take_care_of_expression(c , target , tree->right , left  , right , done  , counts ) ; 
@@ -1459,11 +1476,16 @@ engine{
                     int * temp_ans[3] = malloc(3*sizeof(int)) ; 
                     int left_one = c->register_counter++   ; 
                     int right_one  = c->register_counter++   ; 
+                    int first_num = 0 ;
                     if (tp->path[i] == 0 ){
                         temp_ans = take_care_of_expression(c , target , tree_temp->left  , left_one ,right_one , done , counts   ) ; 
+                        check_if_the_stuff_negation_or_not_without_solver(c , temp_ans) ; 
+                        first_num = trap_fired; 
                     }
                     else if (tp->path[i] == 1 ){
                         temp_ans = take_care_of_expression(c , target , tree_temp->right  , left_one ,right_one , done , counts   ) ; 
+                        check_if_the_stuff_negation_or_not_without_solver(c , temp_ans) ; 
+                        first_num = trap_fired; 
                     }
                     if (tree_temp->operator != NULL ){
                         if (strcmp(tree_temp->operator  , "+" ) == 0 ){
@@ -1475,28 +1497,181 @@ engine{
                             emit(c , add_op , right_ans[1] , temp_ans[1] , right_ans[1] , NULL) ; 
                         }
                         else if (strcmp(tree_temp->operator  , "*" ) == 0 ){
-                            check_if_the_stuff_negation_or_not() ; 
+                            int num = 0 ; 
+                            if (tp->path[i] == 0 ){
+                                check_if_the_stuff_negation_or_not(c , target ,tree_temp->left ) ; 
+                                second_num = trap_fired ; 
+                            }
+                            else if (tp->path[i] == 1 ){
+                                check_if_the_stuff_negation_or_not(c , target ,tree_temp->right ) ; 
+                                second_num = trap_fired ; 
+                            }
+                            if ( ( first_num == 1 && second_num == 0 )  || ( first_num == 0 && second_num == 1 ) ){
+                                 if (strcmp(tree->operator , ">")== 0 ){
+                                    strcpy(tree->operator , "<") ; 
+                                }
+                                else if  (strcmp(tree->operator , ">=")== 0 ){
+                                    strcpy(tree->operator , "<=") ; 
+                                }
+                                else if  (strcmp(tree->operator , "<")== 0 ){
+                                    strcpy(tree->operator , ">") ; 
+                                }
+                                else if (strcmp(tree->operator , "<=")== 0 ){
+                                    strcpy(tree->operator , ">=") ; 
+                                }
+                            }
                             emit(c , divide_op , right_ans[0] , temp_ans[0] , right_ans[0] , NULL) ; 
                             emit(c , divide_op , right_ans[1] , temp_ans[1] , right_ans[1] , NULL) ; 
                         }
                         else if (strcmp(tree_temp->operator  , "/" ) == 0 ){
+                            int second_num = 0  ; 
+                            if (tp->path[i] == 0 ){
+                               check_if_the_stuff_negation_or_not(c , target ,tree_temp->left ) ; 
+                               second_num = trap_fired ; 
+                            }
+                            else if (tp->path[i] == 1 ){
+                               check_if_the_stuff_negation_or_not(c , target ,tree_temp->right ) ; 
+                                second_num = trap_fired ;  
+                            }
+                            if ( ( first_num == 1 && second_num == 0 )  || ( first_num == 0 && second_num == 1 ) ){
+                                 if (strcmp(tree->operator , ">")== 0 ){
+                                    strcpy(tree->operator , "<") ; 
+                                }
+                                else if  (strcmp(tree->operator , ">=")== 0 ){
+                                    strcpy(tree->operator , "<=") ; 
+                                }
+                                else if  (strcmp(tree->operator , "<")== 0 ){
+                                    strcpy(tree->operator , ">") ; 
+                                }
+                                else if (strcmp(tree->operator , "<=")== 0 ){
+                                    strcpy(tree->operator , ">=") ; 
+                                }
+                            }
                             emit(c , mul_op , right_ans[0] , temp_ans[0] , right_ans[0] , NULL) ; 
                             emit(c , mul_op , right_ans[1] , temp_ans[1] , right_ans[1] , NULL) ; 
                         }
                     }
                     if (tp->path[i] == 0 ){
-                        tree_temp = tree_temp->right ; 
+                        tree_temp = tree_temp->left ; 
                     }
                     else if (tp->path[i] == 1 ){
-                        tree_temp = tree_temp->left ; 
+                        tree_temp = tree_temp->right ; 
                     }
                     i++ ; 
                 }
+                return right_ans ; 
             }
         }
         else { 
-
+           int * left_ans[3] = malloc(3*sizeof(int)) ; 
+            int left = c->register_counter++   ; 
+            int right  = c->register_counter++   ; 
+            int *done = malloc(sizeof(int)) ; 
+            *done = 0 ; 
+            int counts[300];
+            for (int i = 0 ; i < c->select->join[c->select->join_counter]->join_table_counter; i++) {
+                counts[i] = c->select->join[c->select->join_counter]->tables_occuring_number_of_times[i];
+            }
+            left_ans = take_care_of_expression(c , target , tree->left , left  , right , done  , counts ) ; 
+            temp_info_for_path * tp ; 
+            find_the_path_of_the_stuff( tp  , c ,target , tree ) ; 
+            int i = 0 ; 
+            select_select_info * tree_temp  = tree ; 
+            if (tp->counter == 1 ){
+                return left_ans ; 
+            }
+            else { 
+                while ( i < tp->counter ){
+                    int * temp_ans[3] = malloc(3*sizeof(int)) ; 
+                    int left_one = c->register_counter++   ; 
+                    int right_one  = c->register_counter++   ; 
+                    int first_num = 0 ;
+                    if (tp->path[i] == 0 ){
+                        temp_ans = take_care_of_expression(c , target , tree_temp->left  , left_one ,right_one , done , counts   ) ; 
+                        check_if_the_stuff_negation_or_not_without_solver(c , temp_ans) ; 
+                        first_num = trap_fired; 
+                    }
+                    else if (tp->path[i] == 1 ){
+                        temp_ans = take_care_of_expression(c , target , tree_temp->right  , left_one ,right_one , done , counts   ) ; 
+                        check_if_the_stuff_negation_or_not_without_solver(c , temp_ans) ; 
+                        first_num = trap_fired; 
+                    }
+                    if (tree_temp->operator != NULL ){
+                        if (strcmp(tree_temp->operator  , "+" ) == 0 ){
+                            emit(c , subs_op , left_ans[0] , temp_ans[0] , left_ans[0] , NULL) ; 
+                            emit(c , subs_op , left_ans[1] , temp_ans[1] , left_ans[1] , NULL) ; 
+                        }
+                        else if (strcmp(tree_temp->operator  , "-" ) == 0 ){
+                            emit(c , add_op , left_ans[0] , temp_ans[0] , left_ans[0] , NULL) ; 
+                            emit(c , add_op , left_ans[1] , temp_ans[1] , left_ans[1] , NULL) ; 
+                        }
+                        else if (strcmp(tree_temp->operator  , "*" ) == 0 ){
+                            int num = 0 ; 
+                            if (tp->path[i] == 0 ){
+                                check_if_the_stuff_negation_or_not(c , target ,tree_temp->left ) ; 
+                                second_num = trap_fired ; 
+                            }
+                            else if (tp->path[i] == 1 ){
+                                check_if_the_stuff_negation_or_not(c , target ,tree_temp->right ) ; 
+                                second_num = trap_fired ; 
+                            }
+                            if ( ( first_num == 1 && second_num == 0 )  || ( first_num == 0 && second_num == 1 ) ){
+                                 if (strcmp(tree->operator , ">")== 0 ){
+                                    strcpy(tree->operator , "<") ; 
+                                }
+                                else if  (strcmp(tree->operator , ">=")== 0 ){
+                                    strcpy(tree->operator , "<=") ; 
+                                }
+                                else if  (strcmp(tree->operator , "<")== 0 ){
+                                    strcpy(tree->operator , ">") ; 
+                                }
+                                else if (strcmp(tree->operator , "<=")== 0 ){
+                                    strcpy(tree->operator , ">=") ; 
+                                }
+                            }
+                            emit(c , divide_op , left_ans[0] , temp_ans[0] , left_ans[0] , NULL) ; 
+                            emit(c , divide_op , left_ans[1] , temp_ans[1] , left_ans[1] , NULL) ; 
+                        }
+                        else if (strcmp(tree_temp->operator  , "/" ) == 0 ){
+                            int second_num = 0  ; 
+                            if (tp->path[i] == 0 ){
+                               check_if_the_stuff_negation_or_not(c , target ,tree_temp->left ) ; 
+                               second_num = trap_fired ; 
+                            }
+                            else if (tp->path[i] == 1 ){
+                               check_if_the_stuff_negation_or_not(c , target ,tree_temp->right ) ; 
+                                second_num = trap_fired ;  
+                            }
+                            if ( ( first_num == 1 && second_num == 0 )  || ( first_num == 0 && second_num == 1 ) ){
+                                 if (strcmp(tree->operator , ">")== 0 ){
+                                    strcpy(tree->operator , "<") ; 
+                                }
+                                else if  (strcmp(tree->operator , ">=")== 0 ){
+                                    strcpy(tree->operator , "<=") ; 
+                                }
+                                else if  (strcmp(tree->operator , "<")== 0 ){
+                                    strcpy(tree->operator , ">") ; 
+                                }
+                                else if (strcmp(tree->operator , "<=")== 0 ){
+                                    strcpy(tree->operator , ">=") ; 
+                                }
+                            }
+                            emit(c , mul_op , left_ans[0] , temp_ans[0] , left_ans[0] , NULL) ; 
+                            emit(c , mul_op , left_ans[1] , temp_ans[1] , left_ans[1] , NULL) ; 
+                        }
+                    }
+                    if (tp->path[i] == 0 ){
+                        tree_temp = tree_temp->left ; 
+                    }
+                    else if (tp->path[i] == 1 ){
+                        tree_temp = tree_temp->right ; 
+                    }
+                    i++ ; 
+                }
+                return left_ans ; 
+            }
         }
+        return -1 ; 
     }
 
     void* join_inequality_clause(compiler * c, select_select_info * from  , select_from_info * from_org  ){

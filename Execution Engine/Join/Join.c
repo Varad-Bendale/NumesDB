@@ -987,7 +987,8 @@ void* join_inequality_clause(compiler * c, select_select_info * from  , select_f
         emit(c , column_op , second , primary_key_offset( db , first_table ) ,primary_key_second_loc , NULL) ;
     
     final_finished_equation * final_equation[2] = malloc(2* sizeof(final_finished_equation)) ; 
-    
+    int cursors[2]   ;  
+    int cursor_type[2] ; 
     for ( int a = 0 ; a < 2 ; a++ ){
         final_finished_equation * ans ; 
         ans = sizeof(final_finished_equation) ; 
@@ -1088,49 +1089,65 @@ void* join_inequality_clause(compiler * c, select_select_info * from  , select_f
         final_equation[a] = ans ; 
     }   
 
-    if (primary_key_offset( db , final_equation[a]->target_table  ) == final_equation[a]->target_column  ){
+    for ( int a = 0 ; a < 2 ; a++ ){
+        if (primary_key_offset( db , final_equation[a]->target_table  ) == final_equation[a]->target_column  ){
+            cursor_type[a] = 0 ; 
+            cursors[a] = final_equation[a]->target_table  ; 
+        }
+        else { 
+            int cursor_for_sort = c->sorter_cursor++ ; 
+            int cursor = c->cursor_num++ ; 
+            cursor_type[a] = 1 ; 
+            cursors[a] = cursor_for_sort ; 
+            emit(c , open_read_op , cursor , c->tl->tables[table_num(table_thing(final_equation[a]->target_table))]->root_page_num ; ,  -1 , -1 , NULL    ) ; 
+            emit(c , sorter_open , cursor_for_sort , final_equation[a]->target_column , -1 , NULL ) ; 
+            int loop_count = c->count ; 
+            int check = c->register_counter++ ; 
+            int turn ; 
+            emit(c , column_op , cursor , final_equation[a]->target_column  , check , NULL )  ; 
+            if (strcmp(final_equation[a]->target_column , ">" )){
+                emit(c , gt_op , final_equation[a]->range[0] , -1 , check , NULL  ) ; 
+                turn = c->count ; 
+            }
+            else if (strcmp(final_equation[a]->target_column , ">=" )){
+                emit(c , ge_op , final_equation[a]->range[0] , -1 , check , NULL  ) ; 
+                turn = c->count ; 
+            }
+            else if (strcmp(final_equation[a]->target_column , "<=" )){
+                emit(c , le_op , final_equation[a]->range[0] , -1 , check , NULL  ) ; 
+                turn = c->count ; 
+            }
+            else if (strcmp(final_equation[a]->target_column , "<" )){
+                emit(c , lt_op , final_equation[a]->range[0] , -1 , check , NULL  ) ; 
+                turn = c->count ; 
+            }
+            int start = c->register_counter ; 
+            int cur ; 
+            for (int i = 0 ; i < c->tl->tables[table_num(table_thing(final_equation[a]->target_table))]->num_of_columns ; i++  ){
+                cur = c->register_counter++ ; 
+                emit(c , column_op , cursor , i , cur ,  NULL ) ; 
+            }
+            emit(c , make_record , start , cur , start , NULL ) ; 
+            emit(c , sorter_insert , cursor_sort, start , -1  , NULL) ; 
+            c->typ[turn]->p2 = c->count ; 
+            emit(c , next_cursor , cursor ,loop_count , -1 , NULL ) ; 
+            emit(c , sorter_sort , cursor_sort , -1 , -1 , NULL ) ; 
+        }
+    }
 
+    int first = c->cursor_num++ ; 
+    int second = c->cursor_num++ ; 
+    if (cursor_type[0] == 0  ){
+        emit(c , open_read_op ,first , c->tl->tables[table_num(table_thing(final_equation[a]->target_table))]->root_page_num , -1 , -1 , NULL  ) ; 
     }
     else { 
-        int cursor_for_sort = c->sorter_cursor++ ; 
-        int cursor = c->cursor_num++ ; 
-        emit(c , open_read_op , cursor , c->tl->tables[table_num(table_thing(final_equation[a]->target_table))]->root_page_num ; ,  -1 , -1 , NULL    ) ; 
-        emit(c , sorter_open , cursor_for_sort , final_equation[a]->target_column , -1 , NULL ) ; 
-        int loop_count = c->count ; 
-        int start = c->register_counter ; 
-        int cur ; 
-        for (int i = 0 ; i < c->tl->tables[table_num(table_thing(final_equation[a]->target_table))]->num_of_columns ; i++  ){
-            cur = c->register_counter++ ; 
-            emit(c , column_op , cursor , i , cur ,  NULL ) ; 
-        }
-        emit(c , make_record , start , cur , start , NULL ) ; 
-        emit(c , sorter_insert , cursor_sort, start , -1  , NULL) ; 
-        emit(c , next_cursor , cursor ,loop_count , -1 , NULL ) ; 
-        emit(c , sorter_sort , cursor_sort , -1 , -1 , NULL ) ; 
+        
     }
 
+
     
     
 }
-
-int check = c->register_counter++ ; 
-emit(c , column_op , cursor , final_equation[a]->target_column  , check , NULL )  ; 
-int check_operator ; 
-if (strcmp(final_equation[a]->target_column , ">" )){
-    check_operator = gt_select_op ; 
-}
-else if (strcmp(final_equation[a]->target_column , ">=" )){
-    check_operator = ge_select_op ; 
-}
-else if (strcmp(final_equation[a]->target_column , "<=" )){
-    check_operator = lt_select_op ; 
-}
-else if (strcmp(final_equation[a]->target_column , "<" )){
-    check_operator = le_select_op ; 
-}
-
-
-
 
 
 

@@ -47,3 +47,6 @@
 
 16. Not a problem but a future scope in the tree two of the just the numeric terms ( the ones which are not columns like just 3+ 2 )
     are not quite supported yeah a singular operation is supported liek ( a + 3 ) but both of them as the normal terms aint working 
+
+17 . the Join right now just works on the normal 2 join like a join b but ofc the multiple join condition can occur i havent done
+    it at all try doing it 

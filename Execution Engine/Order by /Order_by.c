@@ -1,3 +1,6 @@
+#include "Engine.h"
+
+
 void where_parser_to_struct(compiler *c , tree * select ){
     int i = 0 ; 
     while (i < select->num ){

@@ -1,4 +1,4 @@
-## Numes_db
+## NumesDB
 
 Numes_db is a relational database engine that reads and writes directly
 to a file on disk — the same approach SQLite uses — built completely in C.

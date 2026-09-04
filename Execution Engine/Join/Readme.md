@@ -1,4 +1,4 @@
-# JOIN Clause 
+Join Clause 
 
 Join clause is most probably the clause which needs the most optimization, as it deals with millions of tables being joined with each other again and again. So, we pretty much need to be very clever and try to optimize it at the `ON` condition of the joins. `CROSS JOIN` is a different thing, but the rest of the stuff is pretty much covered by the `ON` condition, and we can optimize a lot at that part.
 

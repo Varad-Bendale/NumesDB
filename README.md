@@ -1,13 +1,13 @@
-## NumesDB
+## FluxDB
 
-Numes_db is a relational database engine that reads and writes directly
+FluxDB is a relational database engine that reads and writes directly
 to a file on disk — the same approach SQLite uses — built completely in C.
 
 Databases run the entire tech industry, yet almost no one knows how this
 wonderful piece of software actually works. This is that black box,
 rebuilt in C, piece by piece.
 
-## Numes_db Supports
+## FluxDB Supports
 
 ```
 SELECT [columns | CASE ... END]
@@ -65,7 +65,7 @@ SELECT [columns | CASE ... END]
 ## Repository Structure
 
 ```
-Numes_db/
+FluxDB/
 ├── README.md                  # Project documentation
 ├── sql.c                      # Entire code
 │
